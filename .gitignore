@@ -1,0 +1,21 @@
+# Normal private files
+build/
+dist/
+logs/
+adaptor-config.properties
+cacerts.jks
+keys.jks
+adaptor.crt
+gsa.crt
+
+# unix files
+RCS/
+
+# IntelliJ files
+workspace/
+classes/
+.idea
+Plexi.iml
+
+# NetBeans files
+nbproject/
