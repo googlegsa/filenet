@@ -2,6 +2,7 @@
 build/
 dist/
 logs/
+build.properties
 adaptor-config.properties
 cacerts.jks
 keys.jks

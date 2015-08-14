@@ -1,0 +1,4 @@
+# Sample Config file for FileNet Adaptor
+
+# Hostname or IP address of the GSA this adaptor will be feeding.
+gsa.hostname =
