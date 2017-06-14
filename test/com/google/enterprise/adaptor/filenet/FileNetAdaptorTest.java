@@ -179,11 +179,28 @@ public class FileNetAdaptorTest {
   }
 
   @Test
-  public void testMockTraverser_getDocIds_shortCheckpoint() throws Exception {
+  public void testGetDocIds() throws Exception {
     long startTime = new Date().getTime();
-    RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    Traverser traverser = new MockTraverser(pusher, 5);
-    traverser.getDocIds(new Checkpoint("type=document"));
+    RecordingDocIdPusher pusher
+        = (RecordingDocIdPusher) context.getDocIdPusher();
+    config.overrideKey("feed.maxUrls", "5");
+    adaptor.init(context);
+    adaptor.getDocIds(pusher);
+
+    List<Record> golden = ImmutableList.of(
+        new Record.Builder(new DocId("pseudo/document"))
+        .setCrawlImmediately(true).build());
+    assertEquals(golden, pusher.getRecords());
+  }
+
+  @Test
+  public void testGetDocContent_shortCheckpoint() throws Exception {
+    long startTime = new Date().getTime();
+    RecordingDocIdPusher pusher
+        = (RecordingDocIdPusher) context.getDocIdPusher();
+    config.overrideKey("feed.maxUrls", "5");
+    adaptor.init(context);
+    adaptor.getDocIds(pusher);
 
     List<Record> golden = ImmutableList.of(
         new Record.Builder(
@@ -216,7 +233,7 @@ public class FileNetAdaptorTest {
   }
 
   @Test
-  public void testMockTraverser_getDocIds_longCheckpoint() throws Exception {
+  public void testGetDocContent_longCheckpoint() throws Exception {
     Date timestamp = new Date();
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     Traverser traverser = new MockTraverser(pusher, 5);
@@ -246,7 +263,7 @@ public class FileNetAdaptorTest {
   }
 
   @Test
-  public void testMockTraverser_getDocIds_endOfTraversal() throws Exception {
+  public void testGetDocContent_endOfTraversal() throws Exception {
     Date timestamp = new Date();
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     Traverser traverser = new MockTraverser(pusher, 5);

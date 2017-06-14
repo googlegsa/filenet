@@ -142,7 +142,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
         Checkpoint checkpoint = new Checkpoint(idParts[1]);
         switch (checkpoint.traverser) {
           case "document":
-            documentTraverser.getDocIds(checkpoint);
+            documentTraverser.getDocIds(checkpoint, context.getDocIdPusher());
             break;
           default:
             logger.log(Level.WARNING, "Unsupported traverser: " + checkpoint);
@@ -150,7 +150,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
         }
         break;
       case "guid":
-        documentTraverser.getDocContent(new Id(idParts[1]), resp);
+        documentTraverser.getDocContent(new Id(idParts[1]), req, resp);
         break;
       default:
         logger.log(Level.FINE, "Invalid DocId: {0}", id);
@@ -161,28 +161,28 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
   @VisibleForTesting
   static interface Traverser {
-    void getDocIds(Checkpoint checkpoint)
+    void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
         throws IOException, InterruptedException;
 
-    void getDocContent(Id id, Response response)
+    void getDocContent(Id id, Request request, Response response)
         throws IOException, InterruptedException;
   }
 
   @VisibleForTesting
   static class MockTraverser implements Traverser {
     private final String idFormat = "{AAAAAAAA-0000-0000-0000-%012d}";
-    private final DocIdPusher pusher;
     private final int maxFeedUrls;
 
-    MockTraverser(DocIdPusher pusher, int maxFeedUrls) {
-      this.pusher = checkNotNull(pusher, "pusher must not be null");
+    MockTraverser(int maxFeedUrls) {
       checkArgument(maxFeedUrls > 2, "feed.maxUrls must be greater than 2");
       this.maxFeedUrls = maxFeedUrls;
     }
 
     @Override
-    public void getDocIds(Checkpoint checkpoint)
+    public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
         throws IOException, InterruptedException {
+      checkNotNull(checkpoint, "checkpoint may not be null");
+      checkNotNull(pusher, "pusher may not be null");
       Date timestamp;
       int id;
       if (checkpoint.uuid == null) {
@@ -196,27 +196,25 @@ public class FileNetAdaptor extends AbstractAdaptor {
       }
       int maxDocIds = maxFeedUrls - 1;
       List<Record> records = new ArrayList<>(maxDocIds);
-      for (int i = 0; i < maxDocIds && id < 10000; i++, id++) {
+      for (int i = 0; i < maxDocIds && ++id < 10000; i++) {
         DocId docid = newDocId(new Id(String.format(idFormat, id)));
         records.add(new Record.Builder(docid).build());
       }
-      Checkpoint newCheckpoint;
-      if (records.isEmpty()) {
-        // No new data, push old checkpoint;
-        newCheckpoint = checkpoint;
-      } else {
-        newCheckpoint = new Checkpoint(checkpoint.traverser, timestamp,
-            new Id(String.format(idFormat, id)));
+      if (!records.isEmpty()) {
+        Checkpoint newCheckpoint
+           = new Checkpoint(checkpoint.traverser, timestamp,
+                new Id(String.format(idFormat, id)));
+
+        records.add(new Record.Builder(newDocId(newCheckpoint))
+            .setCrawlImmediately(true)
+            .build());
+        pusher.pushRecords(records);
       }
-      records.add(new Record.Builder(newDocId(newCheckpoint))
-          .setCrawlImmediately(true)
-          //.setLastModified(new Date()) TODO(bmj)
-          .build());
-      pusher.pushRecords(records);
     }
 
     @Override
-    public void getDocContent(Id id, Response response) throws IOException {
+    public void getDocContent(Id id, Request request, Response response)
+        throws IOException {
       checkNotNull(id, "id must not be null");
       checkNotNull(response, "response must not be null");
       String content = "Hello from document " + id;
