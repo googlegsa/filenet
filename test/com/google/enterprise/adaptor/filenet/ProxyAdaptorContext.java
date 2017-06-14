@@ -18,8 +18,10 @@ import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdEncoder;
+import com.google.enterprise.adaptor.DocIdPusher;
 import com.google.enterprise.adaptor.PollingIncrementalLister;
 import com.google.enterprise.adaptor.SensitiveValueDecoder;
+import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -35,9 +37,14 @@ class ProxyAdaptorContext {
     private final DocIdEncoder docIdEncoder = new MockDocIdCodec();
     private final SensitiveValueDecoder sensitiveValueDecoder =
         new MockSensitiveValueDecoder();
+    private final RecordingDocIdPusher pusher = new RecordingDocIdPusher();
 
     public Config getConfig() {
       return config;
+    }
+
+    public DocIdPusher getDocIdPusher() {
+      return pusher;
     }
 
     public DocIdEncoder getDocIdEncoder() {
