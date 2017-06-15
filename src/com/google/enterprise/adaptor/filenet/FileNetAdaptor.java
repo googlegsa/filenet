@@ -27,6 +27,7 @@ import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
+import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
@@ -38,12 +39,15 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Gets FileNet repository content into a Google Search Appliance. */
 public class FileNetAdaptor extends AbstractAdaptor {
@@ -81,6 +85,12 @@ public class FileNetAdaptor extends AbstractAdaptor {
     this.context = context;
     Config config = context.getConfig();
 
+    int maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
+    if (maxFeedUrls < 2) {
+      throw new InvalidConfigurationException(
+          "feed.maxUrls must be greater than 2");
+    }
+
     contentEngineUrl = config.getValue("filenet.contentEngineUrl");
     logger.log(Level.CONFIG, "filenet.contentEngineUrl: {0}", contentEngineUrl);
 
@@ -101,8 +111,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
           "Failed to access content engine's object store", e);
     }
 
-    int maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
-    documentTraverser = new MockTraverser(context.getDocIdPusher(), maxFeedUrls);
+    documentTraverser = new MockTraverser(maxFeedUrls);
   }
 
   @VisibleForTesting
@@ -140,12 +149,13 @@ public class FileNetAdaptor extends AbstractAdaptor {
     switch (idParts[0]) {
       case "pseudo":
         Checkpoint checkpoint = new Checkpoint(idParts[1]);
-        switch (checkpoint.traverser) {
+        switch (checkpoint.type) {
           case "document":
             documentTraverser.getDocIds(checkpoint, context.getDocIdPusher());
             break;
           default:
-            logger.log(Level.WARNING, "Unsupported traverser: " + checkpoint);
+            logger.log(Level.WARNING, "Unsupported type: " + checkpoint);
+            resp.respondNotFound();
             break;
         }
         break;
@@ -168,13 +178,11 @@ public class FileNetAdaptor extends AbstractAdaptor {
         throws IOException, InterruptedException;
   }
 
-  @VisibleForTesting
-  static class MockTraverser implements Traverser {
+  private static class MockTraverser implements Traverser {
     private final String idFormat = "{AAAAAAAA-0000-0000-0000-%012d}";
     private final int maxFeedUrls;
 
     MockTraverser(int maxFeedUrls) {
-      checkArgument(maxFeedUrls > 2, "feed.maxUrls must be greater than 2");
       this.maxFeedUrls = maxFeedUrls;
     }
 
@@ -185,12 +193,12 @@ public class FileNetAdaptor extends AbstractAdaptor {
       checkNotNull(pusher, "pusher may not be null");
       Date timestamp;
       int id;
-      if (checkpoint.uuid == null) {
+      if (checkpoint.guid == null) {
         timestamp = new Date();
         id = 0;
       } else {
         timestamp = checkpoint.timestamp;
-        String idStr = checkpoint.uuid.toString();
+        String idStr = checkpoint.guid.toString();
         id = Integer.parseInt(
             idStr.substring(idStr.lastIndexOf('-') + 1, idStr.length() - 1));
       }
@@ -202,9 +210,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
       }
       if (!records.isEmpty()) {
         Checkpoint newCheckpoint
-           = new Checkpoint(checkpoint.traverser, timestamp,
+           = new Checkpoint(checkpoint.type, timestamp,
                 new Id(String.format(idFormat, id)));
-
         records.add(new Record.Builder(newDocId(newCheckpoint))
             .setCrawlImmediately(true)
             .build());
@@ -226,14 +233,18 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
   @VisibleForTesting
   static class Checkpoint {
+    private static final String ISO_8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+    private static final Pattern ZONE_PATTERN =
+        Pattern.compile("(?:(Z)|([+-][0-9]{2})(:)?([0-9]{2})?)$");
+    private static final String ZULU_WITH_COLON = "+00:00";
     private static final MessageFormat SHORT_FORMAT = new MessageFormat(
         "type={0}", US);
     private static final MessageFormat FULL_FORMAT = new MessageFormat(
         "type={0};timestamp={1,date,yyyy-MM-dd'T'HH:mm:ss.SSSZ};guid={2}", US);
 
-    public String traverser;
+    public String type;
     public Date timestamp;
-    public Id uuid;
+    public Id guid;
 
     @SuppressWarnings("fallthrough")
     public Checkpoint(String checkpoint) {
@@ -253,13 +264,10 @@ public class FileNetAdaptor extends AbstractAdaptor {
       switch (objs.length) {
         case 3:
           timestamp = (Date) objs[1];
-          logger.info("timestamp: " + timestamp.toString());
-          uuid = new Id((String) objs[2]);
-          logger.info("guid: " + timestamp.toString());
+          guid = new Id((String) objs[2]);
           // fall through
         case 1:
-          traverser = (String) objs[0];
-          logger.info("traverser: " + traverser);
+          type = (String) objs[0];
           break;
         default:
           throw new IllegalArgumentException(
@@ -267,19 +275,45 @@ public class FileNetAdaptor extends AbstractAdaptor {
       }
     }
 
-    public Checkpoint(String traverser, Date timestamp, Id uuid) {
-      this.traverser = checkNotNull(traverser, "traverser may not be null");
+    public Checkpoint(String type, Date timestamp, Id guid) {
+      this.type = checkNotNull(type, "type may not be null");
       this.timestamp = timestamp;
-      this.uuid = uuid;
+      this.guid = guid;
+    }
+
+    /**
+     * Validate the time string by:
+     * (a) appending zone portion (+/-hh:mm) or
+     * (b) inserting the colon into zone portion
+     * if it does not already have zone or colon.
+     *
+     * @param timestamp a Date
+     * @return String - date time in ISO8601 format including zone
+     */
+    public String getQueryTimeString() {
+      String checkpoint = new SimpleDateFormat(ISO_8601).format(timestamp);
+      Matcher matcher = ZONE_PATTERN.matcher(checkpoint);
+      if (matcher.find()) {
+        String timeZone = matcher.group();
+        if (timeZone.length() == 5) {
+          return checkpoint.substring(0, matcher.start())
+              + timeZone.substring(0, 3) + ":" + timeZone.substring(3);
+        } else if (timeZone.length() == 3) {
+          return checkpoint + ":00";
+        } else {
+          return checkpoint.replaceFirst("Z$", ZULU_WITH_COLON);
+        }
+      } else {
+        return checkpoint + ZULU_WITH_COLON;
+      }
     }
 
     @Override
     public String toString() {
-      if (timestamp == null && uuid == null) {
-        return SHORT_FORMAT.format(new Object[] {traverser});
+      if (timestamp == null && guid == null) {
+        return SHORT_FORMAT.format(new Object[] {type});
       } else {
-        return FULL_FORMAT.format(
-            new Object[] {traverser, timestamp, uuid.toString()});
+        return FULL_FORMAT.format(new Object[] {type, timestamp, guid.toString()});
       }
     }
   }

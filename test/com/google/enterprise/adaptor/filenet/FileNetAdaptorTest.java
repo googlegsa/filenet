@@ -16,8 +16,8 @@ package com.google.enterprise.adaptor.filenet;
 
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
-import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.MockTraverser;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Traverser;
+import static com.google.enterprise.adaptor.filenet.Logging.captureLogMessages;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -28,12 +28,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
+import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
 import com.filenet.api.util.Id;
 import com.filenet.api.util.UserContext;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -42,8 +44,10 @@ import org.junit.rules.ExpectedException;
 import java.io.ByteArrayOutputStream;
 import java.security.Principal;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 import javax.security.auth.Subject;
 
 /** Unit tests for FileNetAdaptor */
@@ -51,6 +55,7 @@ public class FileNetAdaptorTest {
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
+  private TimeZone defaultTimeZone = TimeZone.getDefault();
   private FileNetAdaptor adaptor;
   private AdaptorContext context;
   private Config config;
@@ -66,6 +71,11 @@ public class FileNetAdaptorTest {
     config.overrideKey("filenet.username", "test");
     config.overrideKey("filenet.password", "password");
     config.overrideKey("filenet.objectStore", "ObjectStore");
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    TimeZone.setDefault(defaultTimeZone);
   }
 
   @Test
@@ -96,9 +106,9 @@ public class FileNetAdaptorTest {
   }
 
   @Test
-  public void testCheckpoint_ctor_nullTraverser() {
+  public void testCheckpoint_ctor_nullType() {
     thrown.expect(NullPointerException.class);
-    thrown.expectMessage("traverser may not be null");
+    thrown.expectMessage("type may not be null");
     new Checkpoint(null, new Date(),
         new Id("{AAAAAAAA-0000-0000-0000-000000000000}"));
   }
@@ -112,9 +122,9 @@ public class FileNetAdaptorTest {
   @Test
   public void testCheckpoint_ctor_shortCheckpoint() {
     Checkpoint checkpoint = new Checkpoint("type=document");
-    assertEquals("document", checkpoint.traverser);
+    assertEquals("document", checkpoint.type);
     assertNull(checkpoint.timestamp);
-    assertNull(checkpoint.uuid);
+    assertNull(checkpoint.guid);
   }
 
   @Test
@@ -126,10 +136,10 @@ public class FileNetAdaptorTest {
     Checkpoint checkpoint = new Checkpoint("type=document;timestamp="
        + dateFmt.format(now)
        + ";guid={AAAAAAAA-0000-0000-0000-000000000000}");
-    assertEquals("document", checkpoint.traverser);
+    assertEquals("document", checkpoint.type);
     assertEquals(now, checkpoint.timestamp);
     assertEquals(new Id("{AAAAAAAA-0000-0000-0000-000000000000}"),
-                 checkpoint.uuid);
+                 checkpoint.guid);
   }
 
   @Test
@@ -141,9 +151,9 @@ public class FileNetAdaptorTest {
     Id id = new Id("{AAAAAAAA-0000-0000-0000-000000000000}");
 
     Checkpoint checkpoint = new Checkpoint(traverser, now, id);
-    assertEquals(traverser, checkpoint.traverser);
+    assertEquals(traverser, checkpoint.type);
     assertEquals(now, checkpoint.timestamp);
-    assertEquals(id, checkpoint.uuid);
+    assertEquals(id, checkpoint.guid);
   }
 
   @Test
@@ -164,18 +174,42 @@ public class FileNetAdaptorTest {
     assertEquals(checkpointStr, checkpoint.toString());
   }
 
-  @Test
-  public void testMockTraverser_ctor_nullPusher() throws Exception {
-    thrown.expect(NullPointerException.class);
-    thrown.expectMessage("pusher must not be null");
-    new MockTraverser(null, 1000);
+  // These tests of getQueryTimeString are adapted from the v3 FileUtilsTest.
+  private void testCheckpoint_getQueryTimeString(String tzStr,
+      String dateUnderTest, String expected) throws Exception {
+    TimeZone.setDefault(TimeZone.getTimeZone(tzStr));
+    Checkpoint checkpoint = new Checkpoint("type=test;timestamp="
+        + dateUnderTest + ";guid={AAAAAAAA-0000-0000-0000-000000000000}");
+    assertEquals(expected, checkpoint.getQueryTimeString());
   }
 
   @Test
-  public void testMockTraverser_ctor_maxFeedUrls() throws Exception {
-    thrown.expect(IllegalArgumentException.class);
+  public void testCheckpoint_getQueryTimeString_West() throws Exception {
+    testCheckpoint_getQueryTimeString("GMT-0800",
+        "2013-04-30T02:00:00.392-0800",
+        "2013-04-30T02:00:00.392-08:00");
+  }
+
+  @Test
+  public void testCheckpoint_getQueryTimeString_Utc() throws Exception {
+    testCheckpoint_getQueryTimeString("GMT",
+        "2013-04-30T10:00:00.392+0000",
+        "2013-04-30T10:00:00.392+00:00");
+  }
+
+  @Test
+  public void testCheckpoint_getQueryTimeString_East() throws Exception {
+    testCheckpoint_getQueryTimeString("GMT+0400",
+        "2013-04-30T14:00:00.392+0400",
+        "2013-04-30T14:00:00.392+04:00");
+  }
+
+  @Test
+  public void testInit_maxFeedUrlsTooSmall() throws Exception {
+    config.overrideKey("feed.maxUrls", "1");
+    thrown.expect(InvalidConfigurationException.class);
     thrown.expectMessage("feed.maxUrls must be greater than 2");
-    new MockTraverser(new RecordingDocIdPusher(), 1);
+    adaptor.init(context);
   }
 
   @Test
@@ -188,24 +222,61 @@ public class FileNetAdaptorTest {
     adaptor.getDocIds(pusher);
 
     List<Record> golden = ImmutableList.of(
-        new Record.Builder(new DocId("pseudo/document"))
+        new Record.Builder(new DocId("pseudo/type=document"))
         .setCrawlImmediately(true).build());
     assertEquals(golden, pusher.getRecords());
   }
 
   @Test
+  public void testGetDocContent_invalidDocId1() throws Exception {
+    adaptor.init(context);
+
+    List<String> messages = new ArrayList<String>();
+    captureLogMessages(FileNetAdaptor.class, "Invalid DocId:", messages);
+    RecordingResponse response = new RecordingResponse();
+    adaptor.getDocContent(new MockRequest(new DocId("foo")),
+        response);
+    assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
+    assertEquals(messages.toString(), 1, messages.size());
+  }
+
+  @Test
+  public void testGetDocContent_invalidDocId2() throws Exception {
+    adaptor.init(context);
+
+    List<String> messages = new ArrayList<String>();
+    captureLogMessages(FileNetAdaptor.class, "Invalid DocId:", messages);
+    RecordingResponse response = new RecordingResponse();
+    adaptor.getDocContent(new MockRequest(new DocId("foo/bar")),
+        response);
+    assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
+    assertEquals(messages.toString(), 1, messages.size());
+  }
+
+  @Test
+  public void testGetDocContent_invalidDocId3() throws Exception {
+    adaptor.init(context);
+
+    List<String> messages = new ArrayList<String>();
+    captureLogMessages(FileNetAdaptor.class, "Unsupported type:", messages);
+    RecordingResponse response = new RecordingResponse();
+    adaptor.getDocContent(new MockRequest(new DocId("pseudo/type=foo")),
+        response);
+    assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
+    assertEquals(messages.toString(), 1, messages.size());
+  }
+
+  @Test
   public void testGetDocContent_shortCheckpoint() throws Exception {
-    long startTime = new Date().getTime();
-    RecordingDocIdPusher pusher
-        = (RecordingDocIdPusher) context.getDocIdPusher();
     config.overrideKey("feed.maxUrls", "5");
     adaptor.init(context);
-    adaptor.getDocIds(pusher);
+
+    long startTime = new Date().getTime();
+    RecordingResponse response = new RecordingResponse();
+    adaptor.getDocContent(new MockRequest(new DocId("pseudo/type=document")),
+        response);
 
     List<Record> golden = ImmutableList.of(
-        new Record.Builder(
-            new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000000}"))
-        .build(),
         new Record.Builder(
             new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000001}"))
         .build(),
@@ -214,8 +285,13 @@ public class FileNetAdaptorTest {
         .build(),
         new Record.Builder(
             new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000003}"))
+        .build(),
+        new Record.Builder(
+            new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000004}"))
         .build());
 
+    RecordingDocIdPusher pusher
+        = (RecordingDocIdPusher) context.getDocIdPusher();
     List<Record> actual = pusher.getRecords();
     // Assert that the pushed DocIds match.
     assertEquals(golden, actual.subList(0, actual.size() - 1));
@@ -226,28 +302,30 @@ public class FileNetAdaptorTest {
     assertTrue(docid, docid.startsWith("pseudo/"));
     Checkpoint checkpoint
         = new Checkpoint(docid.substring(docid.indexOf('/') + 1));
-    assertEquals("document", checkpoint.traverser);
+    assertEquals("document", checkpoint.type);
     assertEquals(new Id("{AAAAAAAA-0000-0000-0000-000000000004}"),
-                 checkpoint.uuid);
+                 checkpoint.guid);
     assertTrue((checkpoint.timestamp.getTime() - startTime) < 2000);
   }
 
   @Test
   public void testGetDocContent_longCheckpoint() throws Exception {
+    config.overrideKey("feed.maxUrls", "5");
+    adaptor.init(context);
+
     Date timestamp = new Date();
-    RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    Traverser traverser = new MockTraverser(pusher, 5);
     Checkpoint startCheckpoint = new Checkpoint("document", timestamp,
         new Id("{AAAAAAAA-0000-0000-0000-000000000004}"));
 
-    traverser.getDocIds(startCheckpoint);
+    RecordingResponse response = new RecordingResponse();
+    adaptor.getDocContent(
+        new MockRequest(new DocId("pseudo/" + startCheckpoint)), response);
 
+    RecordingDocIdPusher pusher
+        = (RecordingDocIdPusher) context.getDocIdPusher();
     Checkpoint expectedCheckpoint = new Checkpoint("document", timestamp,
         new Id("{AAAAAAAA-0000-0000-0000-000000000008}"));
     List<Record> golden = ImmutableList.of(
-        new Record.Builder(
-            new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000004}"))
-        .build(),
         new Record.Builder(
             new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000005}"))
         .build(),
@@ -257,6 +335,9 @@ public class FileNetAdaptorTest {
         new Record.Builder(
             new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000007}"))
         .build(),
+        new Record.Builder(
+            new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000008}"))
+        .build(),
         new Record.Builder(new DocId("pseudo/" + expectedCheckpoint))
         .setCrawlImmediately(true).build());
     assertEquals(golden, pusher.getRecords());
@@ -264,31 +345,34 @@ public class FileNetAdaptorTest {
 
   @Test
   public void testGetDocContent_endOfTraversal() throws Exception {
+    config.overrideKey("feed.maxUrls", "5");
+    adaptor.init(context);
+
     Date timestamp = new Date();
-    RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    Traverser traverser = new MockTraverser(pusher, 5);
     Checkpoint startCheckpoint = new Checkpoint("document", timestamp,
         new Id("{AAAAAAAA-0000-0000-0000-000000010000}"));
 
-    traverser.getDocIds(startCheckpoint);
+    RecordingResponse response = new RecordingResponse();
+    adaptor.getDocContent(
+        new MockRequest(new DocId("pseudo/" + startCheckpoint)), response);
 
+    RecordingDocIdPusher pusher
+        = (RecordingDocIdPusher) context.getDocIdPusher();
     Checkpoint expectedCheckpoint = startCheckpoint;
-    List<Record> golden = ImmutableList.of(
-        new Record.Builder(new DocId("pseudo/" + expectedCheckpoint))
-        .setCrawlImmediately(true).build());
+    List<Record> golden = ImmutableList.of();
     assertEquals(golden, pusher.getRecords());
   }
 
   @Test
-  public void testMocTraverser_getDocContent() throws Exception {
-    RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    Traverser traverser = new MockTraverser(pusher, 5);
+  public void testGetDocContent_guidDocId() throws Exception {
+    adaptor.init(context);
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     RecordingResponse response = new RecordingResponse(baos);
-    traverser.getDocContent(new Id("{AAAAAAAA-0000-0000-0000-000000000004}"),
+    adaptor.getDocContent(
+        new MockRequest(new DocId("guid/{AAAAAAAA-0000-0000-0000-000000000004}")),
         response);
     assertEquals("text/plain", response.getContentType());
     assertEquals("Hello from document {AAAAAAAA-0000-0000-0000-000000000004}",
-                 baos.toString("UTF-8"));
+        baos.toString("UTF-8"));
   }
 }
