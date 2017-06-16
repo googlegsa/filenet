@@ -14,25 +14,50 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.enterprise.adaptor.DocIdPusher.Record;
+import static com.google.enterprise.adaptor.IOHelper.copyStream;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.US;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.enterprise.adaptor.AbstractAdaptor;
 import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
+import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
 
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.util.Id;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.text.MessageFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Gets FileNet repository content into a Google Search Appliance. */
 public class FileNetAdaptor extends AbstractAdaptor {
   private static final Logger logger =
       Logger.getLogger(FileNetAdaptor.class.getName());
+
+  private static final String ISO_8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+  private static final Pattern ZONE_PATTERN =
+      Pattern.compile("(?:(Z)|([+-][0-9]{2})(:)?([0-9]{2})?)$");
+  private static final String ZULU_WITH_COLON = "+00:00";
 
   private final ObjectFactory factory;
 
@@ -41,6 +66,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
   private String username;
   private String password;
   private String objectStore;
+  private Traverser documentTraverser;
 
   public static void main(String[] args) {
     AbstractAdaptor.main(new FileNetAdaptor(new FileNetObjectFactory()), args);
@@ -64,6 +90,12 @@ public class FileNetAdaptor extends AbstractAdaptor {
     this.context = context;
     Config config = context.getConfig();
 
+    int maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
+    if (maxFeedUrls < 2) {
+      throw new InvalidConfigurationException(
+          "feed.maxUrls must be greater than 2");
+    }
+
     contentEngineUrl = config.getValue("filenet.contentEngineUrl");
     logger.log(Level.CONFIG, "filenet.contentEngineUrl: {0}", contentEngineUrl);
 
@@ -83,6 +115,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
       throw new StartupException(
           "Failed to access content engine's object store", e);
     }
+
+    documentTraverser = new MockTraverser(maxFeedUrls);
   }
 
   @VisibleForTesting
@@ -91,11 +125,197 @@ public class FileNetAdaptor extends AbstractAdaptor {
         context.getSensitiveValueDecoder().decodeValue(password));
   }
 
-  @Override
-  public void getDocIds(DocIdPusher pusher) {
+  private static DocId newDocId(Checkpoint checkpoint) {
+    return new DocId("pseudo/" + checkpoint);
+  }
+
+  private static DocId newDocId(Id id) {
+    return new DocId("guid/" + id);
+  }
+
+  /**
+   * Validate the time string by:
+   * (a) appending zone portion (+/-hh:mm) or
+   * (b) inserting the colon into zone portion
+   * if it does not already have zone or colon.
+   *
+   * Adapted from the v3 connector's FileUtil.java
+   *
+   *
+   * @param timestamp a Date
+   * @return String - date time in ISO8601 format including zone
+   */
+  static String getQueryTimeString(Date timestamp) {
+    String checkpoint = new SimpleDateFormat(ISO_8601).format(timestamp);
+    Matcher matcher = ZONE_PATTERN.matcher(checkpoint);
+    if (matcher.find()) {
+      String timeZone = matcher.group();
+      if (timeZone.length() == 5) {
+        return checkpoint.substring(0, matcher.start())
+            + timeZone.substring(0, 3) + ":" + timeZone.substring(3);
+      } else if (timeZone.length() == 3) {
+        return checkpoint + ":00";
+      } else {
+        return checkpoint.replaceFirst("Z$", ZULU_WITH_COLON);
+      }
+    } else {
+      return checkpoint + ZULU_WITH_COLON;
+    }
   }
 
   @Override
-  public void getDocContent(Request req, Response resp) {
+  public void getDocIds(DocIdPusher pusher) throws IOException,
+      InterruptedException {
+    pusher.pushRecords(Arrays.asList(
+        new Record.Builder(
+            newDocId(new Checkpoint("document", (String) null, (String) null)))
+            .setCrawlImmediately(true).build()));
+  }
+
+  @Override
+  public void getDocContent(Request req, Response resp) throws IOException,
+      InterruptedException {
+    DocId id = req.getDocId();
+    String[] idParts = id.getUniqueId().split("/", 2);
+    if (idParts.length != 2) {
+      logger.log(Level.FINE, "Invalid DocId: {0}", id);
+      resp.respondNotFound();
+      return;
+    }
+    switch (idParts[0]) {
+      case "pseudo":
+        Checkpoint checkpoint = new Checkpoint(idParts[1]);
+        switch (checkpoint.type) {
+          case "document":
+            documentTraverser.getDocIds(checkpoint, context.getDocIdPusher());
+            break;
+          default:
+            logger.log(Level.WARNING, "Unsupported type: " + checkpoint);
+            resp.respondNotFound();
+            break;
+        }
+        break;
+      case "guid":
+        documentTraverser.getDocContent(new Id(idParts[1]), req, resp);
+        break;
+      default:
+        logger.log(Level.FINE, "Invalid DocId: {0}", id);
+        resp.respondNotFound();
+        return;
+    }
+  }
+
+  @VisibleForTesting
+  static interface Traverser {
+    void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
+        throws IOException, InterruptedException;
+
+    void getDocContent(Id id, Request request, Response response)
+        throws IOException, InterruptedException;
+  }
+
+  private static class MockTraverser implements Traverser {
+    private final String idFormat = "{AAAAAAAA-0000-0000-0000-%012d}";
+    private final int maxFeedUrls;
+
+    MockTraverser(int maxFeedUrls) {
+      this.maxFeedUrls = maxFeedUrls;
+    }
+
+    @Override
+    public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
+        throws IOException, InterruptedException {
+      String timestamp;
+      int counter;
+      if (checkpoint.isEmpty()) {
+        timestamp = getQueryTimeString(new Date());
+        counter = 0;
+      } else {
+        timestamp = checkpoint.timestamp;
+        String guid = checkpoint.guid;
+        counter = Integer.parseInt(
+            guid.substring(guid.lastIndexOf('-') + 1, guid.length() - 1));
+      }
+      int maxDocIds = maxFeedUrls - 1;
+      List<Record> records = new ArrayList<>(maxDocIds);
+      for (int i = 0; i < maxDocIds && ++counter < 10000; i++) {
+        DocId docid = newDocId(new Id(String.format(idFormat, counter)));
+        records.add(new Record.Builder(docid).build());
+      }
+      if (!records.isEmpty()) {
+        Checkpoint newCheckpoint
+           = new Checkpoint(checkpoint.type, timestamp,
+                String.format(idFormat, counter));
+        records.add(new Record.Builder(newDocId(newCheckpoint))
+            .setCrawlImmediately(true)
+            .build());
+        pusher.pushRecords(records);
+      }
+    }
+
+    @Override
+    public void getDocContent(Id id, Request request, Response response)
+        throws IOException {
+      String content = "Hello from document " + id;
+      response.setContentType("text/plain");
+      copyStream(new ByteArrayInputStream(content.getBytes(UTF_8)),
+                 response.getOutputStream());
+    }
+  }
+
+  @VisibleForTesting
+  static class Checkpoint {
+    private static final MessageFormat SHORT_FORMAT = new MessageFormat(
+        "type={0}", US);
+    private static final MessageFormat FULL_FORMAT = new MessageFormat(
+        "type={0};timestamp={1};guid={2}", US);
+
+    public final String type;
+    public final String timestamp;
+    public final String guid;
+
+    public Checkpoint(String checkpoint) {
+      checkNotNull(checkpoint, "checkpoint may not be null");
+      logger.info("Checkpoint: '" + checkpoint + "'");
+      try {
+        if (checkpoint.indexOf(';') < 0) {
+          Object[] objs = SHORT_FORMAT.parse(checkpoint);
+          type = (String) objs[0];
+          timestamp = null;
+          guid = null;
+        } else {
+          Object[] objs = FULL_FORMAT.parse(checkpoint);
+          type = (String) objs[0];
+          timestamp = (String) objs[1];
+          guid = (String) objs[2];
+        }
+      } catch (ParseException e) {
+        throw new IllegalArgumentException(
+            "Invalid Checkpoint: " + checkpoint, e);
+      }
+    }
+
+    public Checkpoint(String type, Date timestamp, Id guid) {
+      this(type, getQueryTimeString(timestamp), guid.toString());
+    }
+
+    public Checkpoint(String type, String timestamp, String guid) {
+      this.type = checkNotNull(type, "type may not be null");
+      this.timestamp = timestamp;
+      this.guid = guid;
+    }
+
+    public boolean isEmpty() {
+      return (timestamp == null && guid == null);
+    }
+
+    @Override
+    public String toString() {
+      if (isEmpty()) {
+        return SHORT_FORMAT.format(new Object[] {type});
+      } else {
+        return FULL_FORMAT.format(new Object[] {type, timestamp, guid});
+      }
+    }
   }
 }
