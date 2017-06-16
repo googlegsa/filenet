@@ -16,8 +16,6 @@ package com.google.enterprise.adaptor.filenet;
 
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
-import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Traverser;
-import static com.google.enterprise.adaptor.filenet.Logging.captureLogMessages;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -44,7 +42,6 @@ import org.junit.rules.ExpectedException;
 import java.io.ByteArrayOutputStream;
 import java.security.Principal;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
@@ -143,8 +140,8 @@ public class FileNetAdaptorTest {
 
   @Test
   public void testCheckpoint_ctor_longCheckpoint() throws Exception {
-    SimpleDateFormat dateFmt
-        = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+    SimpleDateFormat dateFmt =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
     String timestamp = dateFmt.format(new Date());
 
     Checkpoint checkpoint = new Checkpoint("type=document;"
@@ -157,8 +154,8 @@ public class FileNetAdaptorTest {
 
   @Test
   public void testCheckpoint_ctor_threeArgs() throws Exception {
-    SimpleDateFormat dateFmt
-        = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    SimpleDateFormat dateFmt =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     String type = "document";
     Date now = new Date();
     Id id = new Id("{AAAAAAAA-0000-0000-0000-000000000000}");
@@ -181,8 +178,8 @@ public class FileNetAdaptorTest {
 
   @Test
   public void testCheckpoint_toString_longCheckpoint() throws Exception {
-    SimpleDateFormat dateFmt
-        = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    SimpleDateFormat dateFmt =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     Date now = new Date();
     String checkpointStr = "type=document;timestamp=" + dateFmt.format(now)
        + ";guid={AAAAAAAA-0000-0000-0000-000000000000}";
@@ -191,32 +188,32 @@ public class FileNetAdaptorTest {
   }
 
   // These tests of getQueryTimeString are adapted from the v3 FileUtilsTest.
-  private void testGetQueryTimeString(String tzStr,
+  private void testCheckpoint_getQueryTimeString(String tzStr,
       String dateUnderTest, String expected) throws Exception {
-    SimpleDateFormat dateFmt
-        = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    SimpleDateFormat dateFmt =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     TimeZone.setDefault(TimeZone.getTimeZone(tzStr));
     assertEquals(expected,
-        FileNetAdaptor.getQueryTimeString(dateFmt.parse(dateUnderTest)));
+        Checkpoint.getQueryTimeString(dateFmt.parse(dateUnderTest)));
   }
 
   @Test
-  public void testGetQueryTimeString_West() throws Exception {
-    testGetQueryTimeString("GMT-0800",
+  public void testCheckpoint_getQueryTimeString_West() throws Exception {
+    testCheckpoint_getQueryTimeString("GMT-0800",
         "2013-04-30T02:00:00.392-0800",
         "2013-04-30T02:00:00.392-08:00");
   }
 
   @Test
-  public void testGetQueryTimeString_Utc() throws Exception {
-    testGetQueryTimeString("GMT",
+  public void testCheckpoint_getQueryTimeString_Utc() throws Exception {
+    testCheckpoint_getQueryTimeString("GMT",
         "2013-04-30T10:00:00.392+0000",
         "2013-04-30T10:00:00.392+00:00");
   }
 
   @Test
-  public void testGetQueryTimeString_East() throws Exception {
-    testGetQueryTimeString("GMT+0400",
+  public void testCheckpoint_getQueryTimeString_East() throws Exception {
+    testCheckpoint_getQueryTimeString("GMT+0400",
         "2013-04-30T14:00:00.392+0400",
         "2013-04-30T14:00:00.392+04:00");
   }
@@ -246,40 +243,31 @@ public class FileNetAdaptorTest {
   public void testGetDocContent_invalidDocId1() throws Exception {
     adaptor.init(context);
 
-    List<String> messages = new ArrayList<String>();
-    captureLogMessages(FileNetAdaptor.class, "Invalid DocId:", messages);
     RecordingResponse response = new RecordingResponse();
     adaptor.getDocContent(new MockRequest(new DocId("foo")),
         response);
     assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
-    assertEquals(messages.toString(), 1, messages.size());
   }
 
   @Test
   public void testGetDocContent_invalidDocId2() throws Exception {
     adaptor.init(context);
 
-    List<String> messages = new ArrayList<String>();
-    captureLogMessages(FileNetAdaptor.class, "Invalid DocId:", messages);
     RecordingResponse response = new RecordingResponse();
     adaptor.getDocContent(new MockRequest(new DocId("foo/bar")),
         response);
     assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
-    assertEquals(messages.toString(), 1, messages.size());
   }
 
   @Test
   public void testGetDocContent_invalidDocId3() throws Exception {
     adaptor.init(context);
 
-    List<String> messages = new ArrayList<String>();
-    captureLogMessages(FileNetAdaptor.class, "Unsupported type:", messages);
     RecordingResponse response = new RecordingResponse();
     adaptor.getDocContent(
         new MockRequest(newDocId(new Checkpoint("type=foo"))),
         response);
     assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
-    assertEquals(messages.toString(), 1, messages.size());
   }
 
   @Test
@@ -309,8 +297,8 @@ public class FileNetAdaptorTest {
     Record continuation = actual.get(actual.size() - 1);
     String docid = continuation.getDocId().getUniqueId();
     assertTrue(docid, docid.startsWith("pseudo/"));
-    Checkpoint checkpoint
-        = new Checkpoint(docid.substring(docid.indexOf('/') + 1));
+    Checkpoint checkpoint =
+        new Checkpoint(docid.substring(docid.indexOf('/') + 1));
     assertEquals("document", checkpoint.type);
     assertEquals("{AAAAAAAA-0000-0000-0000-000000000004}", checkpoint.guid);
   }
@@ -328,8 +316,8 @@ public class FileNetAdaptorTest {
     adaptor.getDocContent(
         new MockRequest(newDocId(startCheckpoint)), response);
 
-    Checkpoint expectedCheckpoint = new Checkpoint("document", timestamp,
-        new Id("{AAAAAAAA-0000-0000-0000-000000000008}"));
+    List<Record> actual = getContextPusher().getRecords();
+    // Assert that the pushed DocIds match.
     assertEquals(ImmutableList.of(
         new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000005}"))
             .build(),
@@ -338,10 +326,17 @@ public class FileNetAdaptorTest {
         new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000007}"))
             .build(),
         new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000008}"))
-            .build(),
-        new Record.Builder(newDocId(expectedCheckpoint))
-            .setCrawlImmediately(true).build()),
-        getContextPusher().getRecords());
+            .build()),
+        actual.subList(0, actual.size() - 1));
+
+    // Now check the continuation record.
+    Record continuation = actual.get(actual.size() - 1);
+    String docid = continuation.getDocId().getUniqueId();
+    assertTrue(docid, docid.startsWith("pseudo/"));
+    Checkpoint checkpoint =
+        new Checkpoint(docid.substring(docid.indexOf('/') + 1));
+    assertEquals("document", checkpoint.type);
+    assertEquals("{AAAAAAAA-0000-0000-0000-000000000008}", checkpoint.guid);
   }
 
   @Test

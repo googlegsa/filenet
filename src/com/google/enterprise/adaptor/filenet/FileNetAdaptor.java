@@ -14,7 +14,6 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.IOHelper.copyStream;
@@ -53,11 +52,6 @@ import java.util.regex.Pattern;
 public class FileNetAdaptor extends AbstractAdaptor {
   private static final Logger logger =
       Logger.getLogger(FileNetAdaptor.class.getName());
-
-  private static final String ISO_8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
-  private static final Pattern ZONE_PATTERN =
-      Pattern.compile("(?:(Z)|([+-][0-9]{2})(:)?([0-9]{2})?)$");
-  private static final String ZULU_WITH_COLON = "+00:00";
 
   private final ObjectFactory factory;
 
@@ -133,42 +127,11 @@ public class FileNetAdaptor extends AbstractAdaptor {
     return new DocId("guid/" + id);
   }
 
-  /**
-   * Validate the time string by:
-   * (a) appending zone portion (+/-hh:mm) or
-   * (b) inserting the colon into zone portion
-   * if it does not already have zone or colon.
-   *
-   * Adapted from the v3 connector's FileUtil.java
-   *
-   *
-   * @param timestamp a Date
-   * @return String - date time in ISO8601 format including zone
-   */
-  static String getQueryTimeString(Date timestamp) {
-    String checkpoint = new SimpleDateFormat(ISO_8601).format(timestamp);
-    Matcher matcher = ZONE_PATTERN.matcher(checkpoint);
-    if (matcher.find()) {
-      String timeZone = matcher.group();
-      if (timeZone.length() == 5) {
-        return checkpoint.substring(0, matcher.start())
-            + timeZone.substring(0, 3) + ":" + timeZone.substring(3);
-      } else if (timeZone.length() == 3) {
-        return checkpoint + ":00";
-      } else {
-        return checkpoint.replaceFirst("Z$", ZULU_WITH_COLON);
-      }
-    } else {
-      return checkpoint + ZULU_WITH_COLON;
-    }
-  }
-
   @Override
   public void getDocIds(DocIdPusher pusher) throws IOException,
       InterruptedException {
     pusher.pushRecords(Arrays.asList(
-        new Record.Builder(
-            newDocId(new Checkpoint("document", (String) null, (String) null)))
+        new Record.Builder(newDocId(new Checkpoint("document", null, null)))
             .setCrawlImmediately(true).build()));
   }
 
@@ -225,13 +188,10 @@ public class FileNetAdaptor extends AbstractAdaptor {
     @Override
     public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
         throws IOException, InterruptedException {
-      String timestamp;
       int counter;
       if (checkpoint.isEmpty()) {
-        timestamp = getQueryTimeString(new Date());
         counter = 0;
       } else {
-        timestamp = checkpoint.timestamp;
         String guid = checkpoint.guid;
         counter = Integer.parseInt(
             guid.substring(guid.lastIndexOf('-') + 1, guid.length() - 1));
@@ -243,9 +203,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
         records.add(new Record.Builder(docid).build());
       }
       if (!records.isEmpty()) {
-        Checkpoint newCheckpoint
-           = new Checkpoint(checkpoint.type, timestamp,
-                String.format(idFormat, counter));
+        Checkpoint newCheckpoint = new Checkpoint(checkpoint.type,
+            new Date(), new Id(String.format(idFormat, counter)));
         records.add(new Record.Builder(newDocId(newCheckpoint))
             .setCrawlImmediately(true)
             .build());
@@ -265,6 +224,10 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
   @VisibleForTesting
   static class Checkpoint {
+    private static final String ISO_8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+    private static final Pattern ZONE_PATTERN =
+        Pattern.compile("(?:(Z)|([+-][0-9]{2})(:)?([0-9]{2})?)$");
+    private static final String ZULU_WITH_COLON = "+00:00";
     private static final MessageFormat SHORT_FORMAT = new MessageFormat(
         "type={0}", US);
     private static final MessageFormat FULL_FORMAT = new MessageFormat(
@@ -296,13 +259,40 @@ public class FileNetAdaptor extends AbstractAdaptor {
     }
 
     public Checkpoint(String type, Date timestamp, Id guid) {
-      this(type, getQueryTimeString(timestamp), guid.toString());
+      this.type = checkNotNull(type, "type may not be null");
+      this.timestamp =
+          (timestamp == null) ? null : getQueryTimeString(timestamp);
+      this.guid = (guid == null) ? null : guid.toString();
     }
 
-    public Checkpoint(String type, String timestamp, String guid) {
-      this.type = checkNotNull(type, "type may not be null");
-      this.timestamp = timestamp;
-      this.guid = guid;
+    /**
+     * Validate the time string by:
+     * (a) appending zone portion (+/-hh:mm) or
+     * (b) inserting the colon into zone portion
+     * if it does not already have zone or colon.
+     *
+     * Adapted from the v3 connector's FileUtil.java
+     *
+     * @param timestamp a Date
+     * @return String - date time in ISO8601 format including zone
+     */
+    @VisibleForTesting
+    static String getQueryTimeString(Date timestamp) {
+      String checkpoint = new SimpleDateFormat(ISO_8601).format(timestamp);
+      Matcher matcher = ZONE_PATTERN.matcher(checkpoint);
+      if (matcher.find()) {
+        String timeZone = matcher.group();
+        if (timeZone.length() == 5) {
+          return checkpoint.substring(0, matcher.start())
+              + timeZone.substring(0, 3) + ":" + timeZone.substring(3);
+        } else if (timeZone.length() == 3) {
+          return checkpoint + ":00";
+        } else {
+          return checkpoint.replaceFirst("Z$", ZULU_WITH_COLON);
+        }
+      } else {
+        return checkpoint + ZULU_WITH_COLON;
+      }
     }
 
     public boolean isEmpty() {
