@@ -28,6 +28,7 @@ import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
 import com.google.enterprise.adaptor.InvalidConfigurationException;
+import com.google.enterprise.adaptor.Principal;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
@@ -62,10 +63,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
   private final ObjectFactory factory;
 
   private AdaptorContext context;
-  private String contentEngineUrl;
-  private String username;
-  private String password;
-  private String objectStore;
+  private Params params;
+
   private Traverser documentTraverser;
 
   public static void main(String[] args) {
@@ -83,46 +82,44 @@ public class FileNetAdaptor extends AbstractAdaptor {
     config.addKey("filenet.username", null);
     config.addKey("filenet.password", null);
     config.addKey("filenet.objectStore", null);
+    config.addKey("filenet.objectFactory", null);
+    config.addKey("filenet.displayUrl", null);
+    config.addKey("filenet.isPublic", "false");
+    config.addKey("filenet.pushAcls", "true");
+    config.addKey("filenet.additionalWhereClause", "");
+    config.addKey("filenet.deleteAdditionalWhereClause", "");
+    config.addKey("filenet.excludedMetadata", "");
+    config.addKey("filenet.includedMetadata", "");
+    config.addKey("adaptor.namespace", Principal.DEFAULT_NAMESPACE);
   }
 
   @Override
   public void init(AdaptorContext context) throws Exception {
     this.context = context;
-    Config config = context.getConfig();
+    this.params = new Params(context.getConfig());
 
-    int maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
-    if (maxFeedUrls < 2) {
-      throw new InvalidConfigurationException(
-          "feed.maxUrls must be greater than 2");
-    }
-
-    contentEngineUrl = config.getValue("filenet.contentEngineUrl");
-    logger.log(Level.CONFIG, "filenet.contentEngineUrl: {0}", contentEngineUrl);
-
-    objectStore = config.getValue("filenet.objectStore");
-    logger.log(Level.CONFIG, "filenet.objectStore: {0}", objectStore);
-
-    username = config.getValue("filenet.username");
-    password = config.getValue("filenet.password");
-
-    // Verify we can connect to the server and access the ObjectStore.
-    logger.log(Level.INFO, "Connecting to content engine {0}",
-        contentEngineUrl);
     try (Connection connection = getConnection()) {
-      logger.log(Level.INFO, "Connecting to object store {0}", objectStore);
-      factory.getObjectStore(connection, objectStore);
+      logger.log(Level.INFO, "Connecting to object store {0}",
+          params.getObjectStore());
+      factory.getObjectStore(connection, params.getObjectStore());
     } catch (EngineRuntimeException e) {
       throw new StartupException(
           "Failed to access content engine's object store", e);
     }
 
-    documentTraverser = new MockTraverser(maxFeedUrls);
+    documentTraverser = new MockTraverser(params);
+  }
+
+  Params getParams() {
+    return params;
   }
 
   @VisibleForTesting
   Connection getConnection() {
-    return factory.getConnection(contentEngineUrl, username,
-        context.getSensitiveValueDecoder().decodeValue(password));
+    return factory.getConnection(
+        params.getContentEngineUrl(),
+        params.getUsername(),
+        context.getSensitiveValueDecoder().decodeValue(params.getPassword()));
   }
 
   private static DocId newDocId(Checkpoint checkpoint) {
@@ -218,8 +215,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
     private final String idFormat = "{AAAAAAAA-0000-0000-0000-%012d}";
     private final int maxFeedUrls;
 
-    MockTraverser(int maxFeedUrls) {
-      this.maxFeedUrls = maxFeedUrls;
+    MockTraverser(Params params) {
+      this.maxFeedUrls = params.getMaxFeedUrls();
     }
 
     @Override

@@ -72,6 +72,8 @@ public class FileNetAdaptorTest {
     config.overrideKey("filenet.username", "test");
     config.overrideKey("filenet.password", "password");
     config.overrideKey("filenet.objectStore", "ObjectStore");
+    config.overrideKey("filenet.objectFactory", "ObjectFactory");
+    config.overrideKey("filenet.displayUrl", "http://test.example.com");
   }
 
   @After
@@ -225,7 +227,7 @@ public class FileNetAdaptorTest {
   public void testInit_maxFeedUrlsTooSmall() throws Exception {
     config.overrideKey("feed.maxUrls", "1");
     thrown.expect(InvalidConfigurationException.class);
-    thrown.expectMessage("feed.maxUrls must be greater than 2");
+    thrown.expectMessage("feed.maxUrls must be greater than 1");
     adaptor.init(context);
   }
 

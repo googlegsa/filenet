@@ -38,6 +38,7 @@ class Params {
   private final String objectStore;
 
   private final String objectFactory;
+  private final String displayUrl;
   private final boolean isPublic;
   private final boolean pushAcls;
   private final String additionalWhereClause;
@@ -45,7 +46,7 @@ class Params {
   private final Set<String> includedMetadata;
   private final Set<String> excludedMetadata;
   private final String globalNamespace;
-  private final String displayUrl;
+  private final int maxFeedUrls;
 
   public Params(Config config) throws InvalidConfigurationException {
     contentEngineUrl = config.getValue("filenet.contentEngineUrl");
@@ -74,6 +75,7 @@ class Params {
     }
     logger.log(Level.CONFIG, "filenet.objectFactory: {0}", objectFactory);
 
+    // TODO(bmj): If empty, can I base it off of contentEngineUrl?
     String workplaceUrl = config.getValue("filenet.displayUrl").trim();
     if (workplaceUrl.endsWith("/getContent/")) {
       workplaceUrl = workplaceUrl.substring(0, workplaceUrl.length() - 1);
@@ -102,7 +104,8 @@ class Params {
     pushAcls = pushAclsStr.isEmpty() ? true : Boolean.parseBoolean(pushAclsStr);
     logger.log(Level.CONFIG, "filenet.pushAcls: " + pushAcls);
 
-    globalNamespace = config.getValue("adaptor.namespace");
+    globalNamespace = config.getValue("adaptor.namespace").trim();
+    logger.log(Level.CONFIG, "adaptor.namespace: " + globalNamespace);
 
     // TODO(bmj): validate where clauses
     additionalWhereClause = config.getValue("filenet.additionalWhereClause");
@@ -122,6 +125,17 @@ class Params {
     includedMetadata = ImmutableSet.copyOf(
         splitter.split(config.getValue("filenet.includedMetadata")));
     logger.log(Level.CONFIG, "filenet.includedMetadata: " + includedMetadata);
+
+    try {
+      maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls").trim());
+      if (maxFeedUrls < 2) {
+        throw new InvalidConfigurationException(
+            "feed.maxUrls must be greater than 1: " + maxFeedUrls);
+      }
+    } catch (NumberFormatException e) {
+      throw new InvalidConfigurationException(
+          "Invalid feed.maxUrls value: " + config.getValue("feed.maxUrls"));
+    }
   }
 
   public String getContentEngineUrl() {
@@ -175,5 +189,9 @@ class Params {
 
   public Set<String> getIncludedMetadata() {
     return includedMetadata;
+  }
+
+  public int getMaxFeedUrls() {
+    return maxFeedUrls;
   }
 }
