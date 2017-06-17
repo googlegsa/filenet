@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4.api;
+package com.google.enterprise.adaptor.filenet;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.enterprise.connector.spi.RepositoryDocumentException;
-import com.google.enterprise.connector.spi.Value;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.ActiveMarkingList;
@@ -141,8 +139,7 @@ public class FnDocument implements IDocument {
     implements ActiveMarkingList {}
 
   @Override
-  public ActiveMarkingList get_ActiveMarkings()
-      throws RepositoryDocumentException {
+  public ActiveMarkingList get_ActiveMarkings() {
     try {
       return doc.get_ActiveMarkings();
     } catch (EngineRuntimeException e) {
@@ -150,7 +147,7 @@ public class FnDocument implements IDocument {
         logger.log(Level.FINER, e.getMessage());
         return new EmptyActiveMarkingList();
       } else {
-        throw new RepositoryDocumentException(e);
+        throw e;
       }
     }
   }
@@ -172,8 +169,7 @@ public class FnDocument implements IDocument {
   }
 
   @Override
-  public void getProperty(String name, List<Value> list)
-      throws RepositoryDocumentException {
+  public void getProperty(String name, List<String> list) {
     Property prop = metas.get(name);
     if (prop == null) {
       logger.log(Level.FINEST, "Property not found: {0}", name);
@@ -185,8 +181,7 @@ public class FnDocument implements IDocument {
       getPropertyStringValue(name, list);
     } else if (prop instanceof PropertyBinary ||
         prop instanceof PropertyBinaryList) {
-      logger.log(Level.FINEST, "Getting Binary property: [{0}]", name);
-      getPropertyBinaryValue(name, list);
+      logger.log(Level.FINEST, "Binary property [{0}] is not supported.", name);
     } else if (prop instanceof PropertyBoolean ||
         prop instanceof PropertyBooleanList) {
       logger.log(Level.FINEST, "Getting Boolean property: [{0}]", name);
@@ -221,7 +216,7 @@ public class FnDocument implements IDocument {
    */
   @Override
   public void getPropertyStringValue(String propertyName,
-      List<Value> valuesList) throws RepositoryDocumentException {
+      List<String> valuesList) {
     Property prop = metas.get(propertyName);
     if (prop == null) {
       logger.log(Level.FINEST, "{0} property is null", propertyName);
@@ -230,7 +225,7 @@ public class FnDocument implements IDocument {
     if (prop instanceof PropertyString) {
       String val = prop.getStringValue();
       if (val != null) {
-        valuesList.add(Value.getStringValue(val));
+        valuesList.add(val.toString());
       } else {
         logger.log(Level.FINEST,
             "{0} property [PropertyString] contains NULL value", propertyName);
@@ -241,7 +236,7 @@ public class FnDocument implements IDocument {
       while (iter.hasNext()) {
         String val = (String) iter.next();
         if (val != null) {
-          valuesList.add(Value.getStringValue(val));
+          valuesList.add(val.toString());
         } else {
           logger.log(Level.FINEST,
               "{0} property [PropertyStringList] contains NULL value",
@@ -249,7 +244,7 @@ public class FnDocument implements IDocument {
         }
       }
     } else {
-      throw new RepositoryDocumentException("Invalid data type: "
+      throw new /*TODO*/ RuntimeException("Invalid data type: "
           + propertyName + " property is not a String type");
     }
   }
@@ -261,8 +256,7 @@ public class FnDocument implements IDocument {
    * multi-valued else it is single-valued.
    */
   @VisibleForTesting
-  void getPropertyGuidValue(String propertyName, List<Value> valuesList)
-      throws RepositoryDocumentException {
+  void getPropertyGuidValue(String propertyName, List<String> valuesList) {
     Property prop = metas.get(propertyName);
     if (prop == null) {
       logger.log(Level.FINEST, "{0} property is null", propertyName);
@@ -272,7 +266,7 @@ public class FnDocument implements IDocument {
       Id val = prop.getIdValue();
       if (val != null) {
         String id = val.toString();
-        valuesList.add(Value.getStringValue(id.substring(1, id.length() - 1)));
+        valuesList.add(id.substring(1, id.length() - 1));
       } else {
         logger.log(Level.FINEST,
             "{0} property [PropertyId] contains NULL value", propertyName);
@@ -288,8 +282,7 @@ public class FnDocument implements IDocument {
           // FileNet connector needs ID without curly braces.  Thus removing
           // the curly braces.
           String id = val.toString();
-          valuesList.add(
-              Value.getStringValue(id.substring(1, id.length() - 1)));
+          valuesList.add(id.substring(1, id.length() - 1));
         } else {
           logger.log(Level.FINEST,
               "{0} property [PropertyIdList] contains NULL value",
@@ -297,7 +290,7 @@ public class FnDocument implements IDocument {
         }
       }
     } else {
-      throw new RepositoryDocumentException("Invalid data type: "
+      throw new /*TODO*/ RuntimeException("Invalid data type: "
           + propertyName + " property is not a PropertyId type");
     }
   }
@@ -309,8 +302,7 @@ public class FnDocument implements IDocument {
    * multi-valued else it is single-valued.
    */
   @VisibleForTesting
-  void getPropertyLongValue(String propertyName, List<Value> valuesList)
-      throws RepositoryDocumentException {
+  void getPropertyLongValue(String propertyName, List<String> valuesList) {
     Property prop = metas.get(propertyName);
     if (prop == null) {
       logger.log(Level.FINEST, "{0} property is null", propertyName);
@@ -319,7 +311,7 @@ public class FnDocument implements IDocument {
     if (prop instanceof PropertyInteger32) {
       Integer val = prop.getInteger32Value();
       if (val != null) {
-        valuesList.add(Value.getLongValue(val.longValue()));
+        valuesList.add(val.toString());
       } else {
         logger.log(Level.FINEST,
             "{0} property [PropertyInteger32] contains NULL value",
@@ -331,7 +323,7 @@ public class FnDocument implements IDocument {
       while (iter.hasNext()) {
         Integer val = (Integer) iter.next();
         if (val != null) {
-          valuesList.add(Value.getLongValue(val.longValue()));
+          valuesList.add(val.toString());
         } else {
           logger.log(Level.FINEST,
               "{0} property [PropertyInteger32List] contains NULL value",
@@ -339,7 +331,7 @@ public class FnDocument implements IDocument {
         }
       }
     } else {
-      throw new RepositoryDocumentException("Invalid data type: "
+      throw new /*TODO*/ RuntimeException("Invalid data type: "
           + propertyName + " property is not an Integer32 or Long type");
     }
   }
@@ -351,8 +343,7 @@ public class FnDocument implements IDocument {
    * multi-valued else it is single-valued.
    */
   @VisibleForTesting
-  void getPropertyDoubleValue(String propertyName,
-      List<Value> valuesList) throws RepositoryDocumentException {
+  void getPropertyDoubleValue(String propertyName, List<String> valuesList) {
     Property prop = metas.get(propertyName);
     if (prop == null) {
       logger.log(Level.FINEST, "{0} property is null", propertyName);
@@ -361,7 +352,7 @@ public class FnDocument implements IDocument {
     if (prop instanceof PropertyFloat64) {
       Double val = prop.getFloat64Value();
       if (val != null) {
-        valuesList.add(Value.getDoubleValue(val.doubleValue()));
+        valuesList.add(val.toString());
       } else {
         logger.log(Level.FINEST,
             "{0} property [PropertyFloat64] contains NULL value", propertyName);
@@ -372,7 +363,7 @@ public class FnDocument implements IDocument {
       while (iter.hasNext()) {
         Double val = (Double) iter.next();
         if (val != null) {
-          valuesList.add(Value.getDoubleValue(val.doubleValue()));
+          valuesList.add(val.toString());
         } else {
           logger.log(Level.FINEST,
               "{0} property [PropertyFloat64List] contains NULL value",
@@ -380,7 +371,7 @@ public class FnDocument implements IDocument {
         }
       }
     } else {
-      throw new RepositoryDocumentException("Invalid data type: "
+      throw new /*TODO*/ RuntimeException("Invalid data type: "
           + propertyName + " property is not a Double type");
     }
   }
@@ -392,8 +383,8 @@ public class FnDocument implements IDocument {
    * multi-valued else it is single-valued.
    */
   @Override
-  public void getPropertyDateValue(String propertyName, List<Value> valuesList)
-      throws RepositoryDocumentException {
+  public void getPropertyDateValue(String propertyName,
+      List<String> valuesList) {
     Property prop = metas.get(propertyName);
     if (prop == null) {
       logger.log(Level.FINEST, "{0} property is null", propertyName);
@@ -404,7 +395,7 @@ public class FnDocument implements IDocument {
       if (val != null) {
         Calendar cal = Calendar.getInstance();
         cal.setTime(val);
-        valuesList.add(Value.getDateValue(cal));
+        valuesList.add(/*TODO: ISO 8601*/val.toString());
       } else {
         logger.log(Level.FINEST,
             "{0} property [PropertyDateTime] contains NULL value",
@@ -418,7 +409,7 @@ public class FnDocument implements IDocument {
         if (val != null) {
           Calendar cal = Calendar.getInstance();
           cal.setTime(val);
-          valuesList.add(Value.getDateValue(cal));
+          valuesList.add(/*TODO: ISO 8601*/val.toString());
         } else {
           logger.log(Level.FINEST,
               "{0} property [PropertyDateTimeList] contains NULL value",
@@ -426,7 +417,7 @@ public class FnDocument implements IDocument {
         }
       }
     } else {
-      throw new RepositoryDocumentException("Invalid data type: "
+      throw new /*TODO*/ RuntimeException("Invalid data type: "
           + propertyName + " property is not a Date type");
     }
   }
@@ -438,8 +429,7 @@ public class FnDocument implements IDocument {
    * multi-valued else it is single-valued.
    */
   @VisibleForTesting
-  void getPropertyBooleanValue(String propertyName,
-      List<Value> valuesList) throws RepositoryDocumentException {
+  void getPropertyBooleanValue(String propertyName, List<String> valuesList) {
     Property prop = metas.get(propertyName);
     if (prop == null) {
       logger.log(Level.FINEST, "{0} property is null", propertyName);
@@ -448,7 +438,7 @@ public class FnDocument implements IDocument {
     if (prop instanceof PropertyBoolean) {
       Boolean val = prop.getBooleanValue();
       if (val != null) {
-        valuesList.add(Value.getBooleanValue(val.booleanValue()));
+        valuesList.add(val.toString());
       } else {
         logger.log(Level.FINEST,
             "{0} property [PropertyBoolean] contains NULL value", propertyName);
@@ -459,7 +449,7 @@ public class FnDocument implements IDocument {
       while (iter.hasNext()) {
         Boolean val = (Boolean) iter.next();
         if (val != null) {
-          valuesList.add(Value.getBooleanValue(val.booleanValue()));
+          valuesList.add(val.toString());
         } else {
           logger.log(Level.FINEST,
               "{0} property [PropertyBooleanList] contains NULL value",
@@ -467,39 +457,8 @@ public class FnDocument implements IDocument {
         }
       }
     } else {
-      throw new RepositoryDocumentException("Invalid data type: "
+      throw new /*TODO*/ RuntimeException("Invalid data type: "
           + propertyName + " property is not a Boolean type");
-    }
-  }
-
-  /**
-   * Fetches the Binary type metadata from FileNet. Responsible for
-   * distinguishing between single-valued and multi-valued metadata. If the
-   * value fetched from FileNet is of instance type List then it is
-   * multi-valued else it is single-valued.
-   */
-  @VisibleForTesting
-  void getPropertyBinaryValue(String propertyName,
-      List<Value> valuesList) throws RepositoryDocumentException {
-    Property prop = metas.get(propertyName);
-    if (prop == null) {
-      logger.log(Level.FINEST, "{0} property is null", propertyName);
-      return;
-    }
-    if (prop instanceof PropertyBinary) {
-      byte[] val = prop.getBinaryValue();
-      if (val.length > 0) {
-        valuesList.add(Value.getBinaryValue(val));
-      } else {
-        logger.log(Level.FINEST,
-            "{0} property [PropertyBinary] contains NULL value", propertyName);
-      }
-    } else if (prop instanceof PropertyBinaryList) {
-      logger.log(Level.FINEST, "Binary MultiValued Metadata is currently not "
-          + "supported. Binary MultiValued metadata will not be fed to GSA");
-    } else {
-      throw new RepositoryDocumentException("Invalid data type: "
-          + propertyName + " property is not a Binary type");
     }
   }
 }

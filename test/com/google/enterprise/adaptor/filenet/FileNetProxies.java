@@ -16,8 +16,10 @@ package com.google.enterprise.adaptor.filenet;
 
 import com.google.common.collect.ImmutableSet;
 
-import com.filenet.api.core.ObjectStore;
+import com.filenet.api.collection.PropertyDefinitionList;
+import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.util.Id;
 
 import java.security.Principal;
 import javax.security.auth.Subject;
@@ -36,9 +38,9 @@ class FileNetProxies implements ObjectFactory {
   }
 
   @Override
-  public ObjectStore getObjectStore(Connection connection,
+  public IObjectStore getObjectStore(Connection connection,
       String objectStoreName) throws EngineRuntimeException {
-    return Proxies.newProxyInstance(ObjectStore.class,
+    return Proxies.newProxyInstance(IObjectStore.class,
         new ObjectStoreMock(objectStoreName));
   }
 
@@ -64,5 +66,16 @@ class FileNetProxies implements ObjectFactory {
     public String get_Name() {
       return objectStoreName;
     }
+  }
+
+  @Override
+  public PropertyDefinitionList getPropertyDefinitions(
+      IObjectStore objectStore, Id objectId, PropertyFilter filter) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public SearchWrapper getSearch(IObjectStore objectStore) {
+    throw new UnsupportedOperationException();
   }
 }

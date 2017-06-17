@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
@@ -137,7 +137,7 @@ public class Permissions {
    * @param Username which needs to be authorized.
    * @return True or False, depending on the success or failure of check for
    *         USE right.
-   * @see com.google.enterprise.connector.filenet4.api.IPermissions#authorizeMarking(java.lang.String)
+   * @see com.google.enterprise.adaptor.filenet.IPermissions#authorizeMarking(java.lang.String)
    */
   public boolean authorizeMarking(User user, Integer constraintMask) {
     boolean hasUseRight = false;
@@ -200,7 +200,7 @@ public class Permissions {
    * @return True or False, depending on the success or failure of check for
    *         grantee name check.
    * @throws Exception
-   * @see com.google.enterprise.connector.filenet4.api.IPermissions#checkGranteeName(AccessPermission,java.lang.String)
+   * @see com.google.enterprise.adaptor.filenet.IPermissions#checkGranteeName(AccessPermission,java.lang.String)
    */
   private boolean matchesUser(AccessPermission perm, User user) {
     String granteeName = perm.get_GranteeName();

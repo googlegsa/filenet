@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
-import com.google.enterprise.connector.filenet4.EngineCollectionMocks.AccessPermissionListMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.constants.AccessType;
@@ -28,13 +28,14 @@ import java.util.List;
 class TestObjectFactory {
   public static FileConnector newFileConnector() {
     FileConnector connector = new FileConnector();
-    connector.setUsername(TestConnection.adminUsername);
-    connector.setPassword(TestConnection.adminPassword);
-    connector.setObject_store(TestConnection.objectStore);
-    connector.setWorkplace_display_url(TestConnection.displayURL);
-    connector.setObject_factory(TestConnection.objectFactory);
-    connector.setContent_engine_url(TestConnection.uri);
-    connector.setPushAcls(true);
+    connector.setUsername("whatever");
+    connector.setPassword("opensesame");
+    connector.setObject_store("ObjStore");
+    connector.setWorkplace_display_url("http://localhost/getContent");
+    connector.setObject_factory(MockObjectFactory.class.getName());
+    connector.setContent_engine_url("http://localhost/wsi/FNCEWS40MTOM");
+    connector.setGoogleGlobalNamespace("ns");
+    connector.login();
     return connector;
   }
 

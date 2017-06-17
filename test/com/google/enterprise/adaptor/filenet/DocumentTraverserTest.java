@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
-import static com.google.enterprise.connector.filenet4.ObjectMocks.mockDocument;
-import static com.google.enterprise.connector.filenet4.ObjectMocks.newObjectStore;
+import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint.getQueryTimeString;
+import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
+import static com.google.enterprise.adaptor.filenet.ObjectMocks.newObjectStore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -29,15 +30,13 @@ import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
-import com.google.enterprise.connector.filenet4.Checkpoint.JsonField;
-import com.google.enterprise.connector.filenet4.EngineCollectionMocks.IndependentObjectSetMock;
-import com.google.enterprise.connector.filenet4.api.MockObjectFactory;
-import com.google.enterprise.connector.filenet4.api.MockObjectStore;
-import com.google.enterprise.connector.spi.RepositoryException;
+import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
+import com.google.enterprise.adaptor.filenet.MockObjectFactory;
+import com.google.enterprise.adaptor.filenet.MockObjectStore;
 
 import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.ClassNames;
-import com.filenet.api.constants.DatabaseType;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.core.IndependentObject;
@@ -45,8 +44,6 @@ import com.filenet.api.util.Id;
 
 import org.easymock.Capture;
 import org.easymock.CaptureType;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -61,30 +58,24 @@ import java.util.List;
 
 public class DocumentTraverserTest extends TraverserFactoryFixture {
   private static final SimpleDateFormat dateFormatter =
-      new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-
-  private static final SimpleDateFormat dateFormatterNoTz =
       new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
-  private static final String CHECKPOINT = "{"
-      + "\"uuid\":\"{AAAAAAAA-0000-0000-0000-000000000000}\","
-      + "\"lastModified\":\"1990-01-01T00:00:00.000\","
-      + "\"uuidToDelete\":\"{BBBBBBBB-0000-0000-0000-000000000000}\","
-      + "\"lastRemoveDate\":\"2000-01-01T00:00:00.000\","
-      + "\"uuidToDeleteDocs\":\"{CCCCCCCC-0000-0000-0000-000000000000}\","
-      + "\"lastModifiedDate\":\"2010-01-01T00:00:00.000\""
-      + "}";
+  private static final String EMPTY_CHECKPOINT =
+      new Checkpoint("document", null, null).toString();
 
-  private static final String CHECKPOINT_TIMESTAMP =
+  private static final String CHECKPOINT =
+      "type=document;timestamp=1990-01-01T00:00:00.000-02:00;"
+      + "guid={AAAAAAAA-0000-0000-0000-000000000000}";
+
+  private static final String DOCUMENT_TIMESTAMP =
       "2014-01-01T20:00:00.000";
 
-  /** The expected local time zone offset for checkpoint date strings. */
-  private static final String TZ_OFFSET;
+  private static final String CHECKPOINT_TIMESTAMP;
 
   static {
     try {
-      TZ_OFFSET = new SimpleDateFormat("Z")
-          .format(dateFormatterNoTz.parse(CHECKPOINT_TIMESTAMP));
+      CHECKPOINT_TIMESTAMP =
+          getQueryTimeString(dateFormatter.parse(DOCUMENT_TIMESTAMP));
     } catch (ParseException e) {
       throw new AssertionError(e);
     }
@@ -96,46 +87,40 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
   public ExpectedException thrown = ExpectedException.none();
 
   @Before
-  public void setUp() throws RepositoryException {
-    connec = new FileConnector();
-    connec.setUsername(TestConnection.adminUsername);
-    connec.setPassword(TestConnection.adminPassword);
-    connec.setObject_store(TestConnection.objectStore);
-    connec.setWorkplace_display_url(TestConnection.displayURL);
-    connec.setObject_factory(MockObjectFactory.class.getName());
-    connec.setContent_engine_url(TestConnection.uri);
-    connec.setGoogleGlobalNamespace("ns");
-    connec.login();
+  public void setUp() {
+    connec = TestObjectFactory.newFileConnector();
   }
 
   @Test
   public void testGetDocumentList_empty() throws Exception {
-    MockObjectStore objectStore = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore objectStore = newObjectStore();
     DocumentTraverser traverser = getDocumentTraverser(connec, objectStore,
         new EmptyObjectSet(), new Capture<String>(CaptureType.NONE));
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    traverser.getDocIds(new Checkpoint().toString(), pusher);
+    traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
     assertEquals(pusher.getDocIds().toString(), 0, pusher.getDocIds().size());
     verifyAll();
   }
 
   @Test
   public void testGetDocumentList_nonEmpty() throws Exception {
-    MockObjectStore objectStore = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore objectStore = newObjectStore();
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
-    String lastModified = dateFormatter.format(new Date());
+    Date now = new Date();
+    String lastModified = dateFormatter.format(now);
     IndependentObject doc = mockDocument(objectStore, id, lastModified, true,
         getPermissions(PermissionSource.SOURCE_DIRECT));
     DocumentTraverser traverser = getDocumentTraverser(connec, objectStore,
         new IndependentObjectSetMock(ImmutableList.of(doc)),
         new Capture<String>(CaptureType.NONE));
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    traverser.getDocIds(new Checkpoint().toString(), pusher);
+    traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
 
     assertEquals(ImmutableList.of(id), getDocids(pusher.getDocIds()));
     String checkpoint = getCheckpoint(pusher.getDocIds());
     assertTrue(checkpoint, checkpoint.contains(id));
-    assertTrue(checkpoint, checkpoint.contains(lastModified));
+    assertTrue(checkpoint,
+        checkpoint.contains(Checkpoint.getQueryTimeString(now)));
     verifyAll();
   }
 
@@ -166,12 +151,12 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
   public void testGetDocumentList_initialCheckpoint() throws Exception {
     connec.setDelete_additional_where_clause("and 1=1");
 
-    MockObjectStore objectStore = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore objectStore = newObjectStore();
     Capture<String> capture = new Capture<>(CaptureType.ALL);
     DocumentTraverser traverser = getDocumentTraverser(connec, objectStore,
         new EmptyObjectSet(), capture);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    traverser.getDocIds(new Checkpoint().toString(), pusher);
+    traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
     assertEquals(pusher.getDocIds().toString(), 0, pusher.getDocIds().size());
     assertTrue(capture.toString(), capture.hasCaptured());
     List<String> queries = capture.getValues();
@@ -211,12 +196,10 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
     // Dates in the query string are in the local time zone, which
     // means we can't hard code them in an expected value.
     Date expectedDate = new Date();
-    String expectedDateString =
-        FileUtil.getQueryTimeString(dateFormatter.format(expectedDate));
+    String expectedDateString = Checkpoint.getQueryTimeString(expectedDate);
 
-    Checkpoint cp = new Checkpoint();
-    cp.setTimeAndUuid(JsonField.LAST_MODIFIED_TIME, expectedDate,
-        JsonField.UUID, new Id(expectedId));
+    Checkpoint cp =
+        new Checkpoint("document", expectedDate, new Id(expectedId));
 
     DocumentTraverser traverser =
         new DocumentTraverser(null, null, null, connec);
@@ -225,23 +208,21 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
         + " AND ('" + expectedId + "'<Id)) OR (DateLastModified>"
         + expectedDateString + "))";
 
-    assertEquals(whereClause,
-        traverser.getCheckpointClause(cp, JsonField.LAST_MODIFIED_TIME,
-            JsonField.UUID));
+    assertEquals(whereClause, traverser.getCheckpointClause(cp));
   }
 
   // FileDocumentTraverserTest/FileDocumentListTest boundary.
 
   private String[][] docEntries = {
-    { "AAAAAAAA-1000-0000-0000-000000000000", CHECKPOINT_TIMESTAMP },
-    { "AAAAAAAA-2000-0000-0000-000000000000", CHECKPOINT_TIMESTAMP },
-    { "AAAAAAAA-3000-0000-0000-000000000000", CHECKPOINT_TIMESTAMP },
-    { "AAAAAAAA-4000-0000-0000-000000000000", CHECKPOINT_TIMESTAMP },
+    { "AAAAAAAA-1000-0000-0000-000000000000", DOCUMENT_TIMESTAMP },
+    { "AAAAAAAA-2000-0000-0000-000000000000", DOCUMENT_TIMESTAMP },
+    { "AAAAAAAA-3000-0000-0000-000000000000", DOCUMENT_TIMESTAMP },
+    { "AAAAAAAA-4000-0000-0000-000000000000", DOCUMENT_TIMESTAMP },
   };
 
   @Test
   public void testNullObjectSet_nullDocuments() throws Exception {
-    MockObjectStore os = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore os = newObjectStore();
     DocumentTraverser traverser = getObjectUnderTest(os, null);
     // We're expecting a NullPointerException, but that leaves
     // unverified mocks, so an AssertionError is also thrown. So we
@@ -255,7 +236,7 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   @Test
   public void testGetDocIds_noResults() throws Exception {
-    MockObjectStore os = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore os = newObjectStore();
     DocumentTraverser traverser = getObjectUnderTest(os, new EmptyObjectSet());
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
@@ -266,14 +247,14 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   @Test
   public void testGetDocIds_emptyCheckpoint() throws Exception {
-    MockObjectStore os = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore os = newObjectStore();
     IndependentObjectSet docSet = getDocuments(os, docEntries, true);
 
     int counter = 0;
     Date lastModified = null;
     DocumentTraverser traverser = getObjectUnderTest(os, docSet);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    traverser.getDocIds(new Checkpoint().toString(), pusher);
+    traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
     List<DocId> docList = pusher.getDocIds();
     for (String id : getDocids(docList)) {
       assertTrue(os.containsObject(ClassNames.DOCUMENT, new Id(id)));
@@ -284,16 +265,15 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
     }
     assertEquals(docEntries.length, counter);
 
-    assertEquals(CHECKPOINT_TIMESTAMP, dateFormatterNoTz.format(lastModified));
+    assertEquals(CHECKPOINT_TIMESTAMP, getQueryTimeString(lastModified));
     assertCheckpointEquals(getCheckpoint(docList),
-        CHECKPOINT_TIMESTAMP + TZ_OFFSET,
-        "{AAAAAAAA-4000-0000-0000-000000000000}");
+        CHECKPOINT_TIMESTAMP, "{AAAAAAAA-4000-0000-0000-000000000000}");
     verifyAll();
   }
 
   @Test
   public void testGetDocIds_checkpoint() throws Exception {
-    MockObjectStore os = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore os = newObjectStore();
     IndependentObjectSet docSet = getDocuments(os, docEntries, true);
 
     int counter = 0;
@@ -311,10 +291,9 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
     }
     assertEquals(docEntries.length, counter);
 
-    assertEquals(CHECKPOINT_TIMESTAMP, dateFormatterNoTz.format(lastModified));
+    assertEquals(CHECKPOINT_TIMESTAMP, getQueryTimeString(lastModified));
     assertCheckpointEquals(getCheckpoint(docList),
-        CHECKPOINT_TIMESTAMP + TZ_OFFSET,
-        "{AAAAAAAA-4000-0000-0000-000000000000}");
+        CHECKPOINT_TIMESTAMP, "{AAAAAAAA-4000-0000-0000-000000000000}");
     verifyAll();
   }
 
@@ -323,7 +302,7 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
   // with better mocks.
   @Test
   public void testGetDocIds_monotonicDates() throws Exception {
-    MockObjectStore os = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore os = newObjectStore();
     IndependentObjectSet docSet = getDocuments(os, docEntries, true);
 
     DocumentTraverser traverser = getObjectUnderTest(os, docSet);
@@ -350,7 +329,7 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   @Test
   public void testGetDocIds_batchHint() throws Exception {
-    MockObjectStore os = newObjectStore(DatabaseType.ORACLE);
+    MockObjectStore os = newObjectStore();
     IndependentObjectSet docSet = getDocuments(os, docEntries, true);
 
     int counter = 0;
@@ -370,16 +349,15 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
     }
     assertEquals(1, counter);
 
-    assertEquals(CHECKPOINT_TIMESTAMP, dateFormatterNoTz.format(lastModified));
+    assertEquals(CHECKPOINT_TIMESTAMP, getQueryTimeString(lastModified));
     assertCheckpointEquals(getCheckpoint(docList),
-        CHECKPOINT_TIMESTAMP + TZ_OFFSET,
-        "{AAAAAAAA-1000-0000-0000-000000000000}");
+        CHECKPOINT_TIMESTAMP, "{AAAAAAAA-1000-0000-0000-000000000000}");
     verifyAll();
   }
 
   @Test
   public void testCheckpointWithoutNextDocument() throws Exception {
-    MockObjectStore os = newObjectStore(DatabaseType.MSSQL);
+    MockObjectStore os = newObjectStore();
     DocumentTraverser traverser = getObjectUnderTest(os, new EmptyObjectSet());
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
@@ -398,9 +376,9 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   private void testMimeTypeAndContentSize(String mimeType, double size,
       boolean expectNotNull) throws Exception {
-    MockObjectStore os = newObjectStore(DatabaseType.MSSQL);
+    MockObjectStore os = newObjectStore();
     IndependentObject doc1 = mockDocument(os,
-        "AAAAAAA1", CHECKPOINT_TIMESTAMP, false, size, mimeType);
+        "AAAAAAA1", DOCUMENT_TIMESTAMP, false, size, mimeType);
     IndependentObjectSet docSet =
         new IndependentObjectSetMock(ImmutableList.of(doc1));
 
@@ -423,8 +401,8 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
   public void testGetDocContent() throws Exception {
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     DocId docId = new DocId("guid/" + id);
-    MockObjectStore os = newObjectStore(DatabaseType.MSSQL);
-    IndependentObject doc = mockDocument(os, id, CHECKPOINT_TIMESTAMP, true,
+    MockObjectStore os = newObjectStore();
+    IndependentObject doc = mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
         getPermissions(
             PermissionSource.SOURCE_DIRECT,
             PermissionSource.SOURCE_TEMPLATE,
@@ -486,24 +464,20 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
   }
 
   private DocumentTraverser getObjectUnderTest(MockObjectStore os,
-      IndependentObjectSet docSet) throws RepositoryException {
+      IndependentObjectSet docSet) {
     return getDocumentTraverser(connec, os, docSet,
         new Capture<String>(CaptureType.NONE));
   }
 
   private void assertCheckpointEquals(String actualCheckpoint,
-      String expectedDate, String expectedId) throws JSONException {
+      String expectedDate, String expectedId) {
     assertFalse("Missing checkpoint: " + actualCheckpoint,
         Strings.isNullOrEmpty(actualCheckpoint));
     assertNotNull("Null expected date", expectedDate);
     assertNotNull("Null expected guid", expectedId);
 
-    JSONObject json = new JSONObject(actualCheckpoint);
-    String actualDate =
-        (String) json.get(JsonField.LAST_MODIFIED_TIME.toString());
-    String actualId = (String) json.get(JsonField.UUID.toString());
-
-    assertEquals(expectedDate, actualDate);
-    assertEquals(expectedId, actualId);
+    Checkpoint checkpoint = new Checkpoint(actualCheckpoint);
+    assertEquals(expectedDate, checkpoint.timestamp);
+    assertEquals(expectedId, checkpoint.guid);
   }
 }

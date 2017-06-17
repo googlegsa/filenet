@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
 import static org.easymock.EasyMock.anyBoolean;
 import static org.easymock.EasyMock.anyInt;
@@ -29,14 +29,8 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.enterprise.connector.filenet4.EngineCollectionMocks.IndependentObjectSetMock;
-import com.google.enterprise.connector.filenet4.EngineCollectionMocks.SecurityPolicySetMock;
-import com.google.enterprise.connector.filenet4.api.IConnection;
-import com.google.enterprise.connector.filenet4.api.IObjectFactory;
-import com.google.enterprise.connector.filenet4.api.IObjectStore;
-import com.google.enterprise.connector.filenet4.api.MockObjectStore;
-import com.google.enterprise.connector.filenet4.api.SearchWrapper;
-import com.google.enterprise.connector.spi.RepositoryException;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.SecurityPolicySetMock;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.DocumentSet;
@@ -137,9 +131,8 @@ public class TraverserFactoryFixture {
 
   protected DocumentTraverser getDocumentTraverser(
       FileConnector connector, MockObjectStore os,
-      final IndependentObjectSet objectSet, Capture<String> capture)
-      throws RepositoryException {
-    IConnection connection = createNiceMock(IConnection.class);
+      final IndependentObjectSet objectSet, Capture<String> capture) {
+    Connection connection = createNiceMock(Connection.class);
 
     // The search result is for added and update documents.
     SearchWrapper searcher = createMock(SearchWrapper.class);
@@ -162,64 +155,11 @@ public class TraverserFactoryFixture {
             }
           );
 
-    IObjectFactory objectFactory = createMock(IObjectFactory.class);
+    ObjectFactory objectFactory = createMock(ObjectFactory.class);
     expect(objectFactory.getSearch(os)).andReturn(searcher);
     replayAndSave(connection, searcher, objectFactory);
 
     return new DocumentTraverser(connection, objectFactory, os, connector);
-  }
-
-  protected FileDocumentTraverser getFileDocumentTraverser(
-      FileConnector connector, MockObjectStore os,
-      IndependentObjectSet objectSet, Capture<String> capture)
-      throws RepositoryException {
-    IConnection connection = createNiceMock(IConnection.class);
-
-    // The first search result is for added and update documents, and
-    // the second and optional third results (both empty) are for
-    // deleted documents.
-    SearchWrapper searcher = createMock(SearchWrapper.class);
-    expect(searcher.fetchObjects(capture(capture), anyInt(),
-            isA(PropertyFilter.class), anyBoolean()))
-        .andReturn(objectSet).andReturn(new EmptyObjectSet()).times(1, 2);
-
-    IObjectFactory objectFactory = createMock(IObjectFactory.class);
-    expect(objectFactory.getSearch(os)).andReturn(searcher);
-    replayAndSave(connection, searcher, objectFactory);
-
-    return new FileDocumentTraverser(connection, objectFactory, os, connector);
-  }
-
-  protected SecurityFolderTraverser getSecurityFolderTraverser(
-      FileConnector connector, FolderSet folderSet)
-      throws RepositoryException {
-    IConnection connection = createNiceMock(IConnection.class);
-    IObjectStore os = createNiceMock(IObjectStore.class);
-    SearchWrapper searcher =
-        new SearchMock(ImmutableMap.of("Folder", folderSet));
-    IObjectFactory objectFactory = createMock(IObjectFactory.class);
-    expect(objectFactory.getSearch(os)).andReturn(searcher).atLeastOnce();
-    replayAndSave(connection, os, objectFactory);
-
-    return new SecurityFolderTraverser(connection, objectFactory, os,
-        connector);
-  }
-
-  protected SecurityPolicyTraverser getSecurityPolicyTraverser(
-      FileConnector connector, SecurityPolicySetMock secPolicySet,
-      DocumentSet docSet) throws RepositoryException {
-    IConnection connection = createNiceMock(IConnection.class);
-    IObjectStore os = createNiceMock(IObjectStore.class);
-    SearchWrapper searcher = new SearchMock(
-        (secPolicySet.isEmpty())
-        ? ImmutableMap.of("SecurityPolicy", secPolicySet)
-        : ImmutableMap.of("SecurityPolicy", secPolicySet, "Document", docSet));
-    IObjectFactory objectFactory = createMock(IObjectFactory.class);
-    expect(objectFactory.getSearch(os)).andReturn(searcher).atLeastOnce();
-    replayAndSave(connection, os, objectFactory);
-
-    return new SecurityPolicyTraverser(connection, objectFactory, os,
-        connector);
   }
 
   protected AccessPermissionList getPermissions(PermissionSource... sources) {
@@ -239,7 +179,7 @@ public class TraverserFactoryFixture {
     /** A map with case-insensitive keys for natural table name matching. */
     private final ImmutableSortedMap<String, IndependentObjectSet> results;
 
-    /** Used by FileDocumentTraverser to just smoke test the queries. */
+    /** Used by DocumentTraverser to just smoke test the queries. */
     protected SearchMock() {
       this.results = ImmutableSortedMap.of();
     }

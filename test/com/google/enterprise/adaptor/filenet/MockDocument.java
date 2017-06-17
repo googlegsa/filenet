@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4.api;
-
-import com.google.enterprise.connector.spi.RepositoryDocumentException;
-import com.google.enterprise.connector.spi.Value;
+package com.google.enterprise.adaptor.filenet;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.ActiveMarkingList;
@@ -96,8 +93,7 @@ public class MockDocument implements IDocument {
       extends ArrayList implements ActiveMarkingList { }
 
   @Override
-  public ActiveMarkingList get_ActiveMarkings()
-      throws RepositoryDocumentException {
+  public ActiveMarkingList get_ActiveMarkings() {
     return new ActiveMarkingListMock();
   }
 
@@ -112,11 +108,10 @@ public class MockDocument implements IDocument {
   }
 
   @Override
-  public void getProperty(String name, List<Value> list)
-      throws RepositoryDocumentException {
+  public void getProperty(String name, List<String> list) {
     if (PropertyNames.ID.equalsIgnoreCase(name)) {
       String val = props.get(name).toString();
-      list.add(Value.getStringValue(val));
+      list.add(val);
     } else if (PropertyNames.DATE_LAST_MODIFIED.equalsIgnoreCase(name)) {
       getPropertyDateValue(name, list);
     } else {
@@ -124,8 +119,7 @@ public class MockDocument implements IDocument {
     }
   }
 
-  private void getPropertyValue(String name, List<Value> list)
-      throws RepositoryDocumentException {
+  private void getPropertyValue(String name, List<String> list) {
     Object obj = props.get(name);
     if (obj == null) {
       return;
@@ -138,18 +132,16 @@ public class MockDocument implements IDocument {
   }
 
   @Override
-  public void getPropertyStringValue(String name, List<Value> list)
-      throws RepositoryDocumentException {
+  public void getPropertyStringValue(String name, List<String> list) {
     String val = (String) props.get(name);
-    list.add(Value.getStringValue(val));
+    list.add(val);
   }
 
   @Override
-  public void getPropertyDateValue(String name, List<Value> list)
-      throws RepositoryDocumentException {
+  public void getPropertyDateValue(String name, List<String> list) {
     Date val = (Date) props.get(name);
     Calendar cal = Calendar.getInstance();
     cal.setTime(val);
-    list.add(Value.getDateValue(cal));
+    list.add(/*TODO: ISO 8601*/ val.toString());
   }
 }

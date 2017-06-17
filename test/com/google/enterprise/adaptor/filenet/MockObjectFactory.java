@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4.api;
+package com.google.enterprise.adaptor.filenet;
 
 import static org.easymock.EasyMock.createNiceMock;
 import static org.easymock.EasyMock.replay;
@@ -25,18 +25,18 @@ import com.filenet.api.util.Id;
  * Returns null or empty nice mocks. This class itself must be
  * public and instantiable from a class name by FileSession.
  */
-public class MockObjectFactory implements IObjectFactory {
+public class MockObjectFactory implements ObjectFactory {
   @Override
-  public IConnection getConnection(String contentEngineUri, String userName,
+  public Connection getConnection(String contentEngineUri, String userName,
       String userPassword) {
-    IConnection connection = createNiceMock(IConnection.class);
+    Connection connection = createNiceMock(Connection.class);
     replay(connection);
     return connection;
   }
 
   @Override
-  public IObjectStore getObjectStore(String objectStoreName,
-      IConnection connection, String userId, String password) {
+  public IObjectStore getObjectStore(Connection connection,
+      String objectStoreName) {
     return null;
   }
 

@@ -12,25 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4.api;
+package com.google.enterprise.adaptor.filenet;
 
-import com.google.enterprise.connector.spi.RepositoryDocumentException;
-import com.google.enterprise.connector.spi.RepositoryException;
-
-import com.filenet.api.constants.DatabaseType;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
 public interface IObjectStore {
-
-  public IBaseObject getObject(String type, String id)
-      throws RepositoryDocumentException;
-
-  public IBaseObject getObject(String type, Id id)
-      throws RepositoryDocumentException;
-
   public IBaseObject fetchObject(String type, Id id,
-      PropertyFilter filter) throws RepositoryDocumentException;
-
-  public DatabaseType get_DatabaseType() throws RepositoryException;
+      PropertyFilter filter);
 }

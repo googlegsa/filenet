@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
 import static com.google.common.collect.Sets.union;
+import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.enterprise.adaptor.Acl;
@@ -24,14 +25,12 @@ import com.google.enterprise.adaptor.GroupPrincipal;
 import com.google.enterprise.adaptor.IOHelper;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.UserPrincipal;
-import com.google.enterprise.connector.filenet4.Checkpoint.JsonField;
-import com.google.enterprise.connector.filenet4.api.IConnection;
-import com.google.enterprise.connector.filenet4.api.IDocument;
-import com.google.enterprise.connector.filenet4.api.IObjectFactory;
-import com.google.enterprise.connector.filenet4.api.IObjectStore;
-import com.google.enterprise.connector.filenet4.api.SearchWrapper;
-import com.google.enterprise.connector.spi.RepositoryException;
-import com.google.enterprise.connector.spi.Value;
+import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
+import com.google.enterprise.adaptor.filenet.Connection;
+import com.google.enterprise.adaptor.filenet.IDocument;
+import com.google.enterprise.adaptor.filenet.ObjectFactory;
+import com.google.enterprise.adaptor.filenet.IObjectStore;
+import com.google.enterprise.adaptor.filenet.SearchWrapper;
 
 import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.ClassNames;
@@ -63,15 +62,15 @@ class DocumentTraverser {
   private static final Logger logger =
       Logger.getLogger(DocumentTraverser.class.getName());
 
-  private final IConnection connection;
-  private final IObjectFactory objectFactory;
+  private final Connection connection;
+  private final ObjectFactory objectFactory;
   private final IObjectStore objectStore;
   private final FileConnector connector;
 
   private int batchHint = 1000;
 
-  public DocumentTraverser(IConnection connection,
-      IObjectFactory objectFactory, IObjectStore objectStore,
+  public DocumentTraverser(Connection connection,
+      ObjectFactory objectFactory, IObjectStore objectStore,
       FileConnector fileConnector) {
     this.connection = connection;
     this.objectFactory = objectFactory;
@@ -88,11 +87,11 @@ class DocumentTraverser {
 
   // TODO: void getDocIds(Checkpoint, DocIdPusher)
   public void getDocIds(String checkpointStr, DocIdPusher pusher)
-      throws IOException {
+      throws IOException, InterruptedException {
     try {
       Checkpoint checkpoint = new Checkpoint(checkpointStr);
 
-      connection.refreshSUserContext();
+      // connection.refreshSUserContext();
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
       SearchWrapper search = objectFactory.getSearch(objectStore);
@@ -118,14 +117,10 @@ class DocumentTraverser {
         docIds.add(new DocId("guid/" + guid));
       }
       if (timestamp != null) {
-        checkpoint.setTimeAndUuid(
-            JsonField.LAST_MODIFIED_TIME, timestamp,
-            JsonField.UUID, guid);
-        docIds.add(new DocId("pseudo/" + checkpoint));
+        docIds.add(newDocId(new Checkpoint(checkpoint.type, timestamp, guid)));
         pusher.pushDocIds(docIds);
       }
-    } catch (EngineRuntimeException | RepositoryException
-        | InterruptedException e) {
+    } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
   }
@@ -136,8 +131,7 @@ class DocumentTraverser {
    * configuration and the previously remembered checkpoint to indicate where
    * to resume acquiring documents from the FileNet repository to send feed.
    */
-  private String buildQueryString(Checkpoint checkpoint)
-      throws RepositoryException {
+  private String buildQueryString(Checkpoint checkpoint) {
     StringBuilder query = new StringBuilder("SELECT TOP ");
     query.append(batchHint);
     query.append(" ");
@@ -161,9 +155,8 @@ class DocumentTraverser {
         query.append(additionalWhereClause);
       }
     }
-    if (!checkpoint.isNull(JsonField.LAST_MODIFIED_TIME)) {
-      query.append(getCheckpointClause(checkpoint, JsonField.LAST_MODIFIED_TIME,
-              JsonField.UUID));
+    if (!checkpoint.isEmpty()) {
+      query.append(getCheckpointClause(checkpoint));
     }
     query.append(" ORDER BY ");
     query.append(PropertyNames.DATE_LAST_MODIFIED);
@@ -182,10 +175,9 @@ class DocumentTraverser {
    * @throws RepositoryException if the checkpoint is uninitialized
    */
   @VisibleForTesting
-  String getCheckpointClause(Checkpoint checkPoint, JsonField dateField,
-      JsonField uuidField) throws RepositoryException {
-    String c = FileUtil.getQueryTimeString(checkPoint.getString(dateField));
-    String uuid = checkPoint.getString(uuidField);
+  String getCheckpointClause(Checkpoint checkPoint) {
+    String c = checkPoint.timestamp;
+    String uuid = checkPoint.guid;
     if (uuid.equals("")) {
       uuid = Id.ZERO_ID.toString();
     }
@@ -205,13 +197,13 @@ class DocumentTraverser {
     try {
       logger.log(Level.FINEST, "Add document [ID: {0}]", id);
       processDocument(id, new DocId("guid/" + id), response);
-    } catch (EngineRuntimeException | RepositoryException e) {
+    } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
   }
 
   private void processDocument(Id guid, DocId docId, Response response)
-        throws IOException, RepositoryException {
+        throws IOException {
       boolean pushAcls = connector.pushAcls();
       IDocument document =
           (IDocument) objectStore.fetchObject(ClassNames.DOCUMENT, guid,
@@ -373,13 +365,12 @@ class DocumentTraverser {
     return builder.build();
   }
 
-  private void setMetadata(IDocument document, Response response)
-      throws RepositoryException {
+  private void setMetadata(IDocument document, Response response) {
     for (String name : getPropertyNames(document)) {
-      ArrayList<Value> list = new ArrayList<>();
+      ArrayList<String> list = new ArrayList<>();
       document.getProperty(name, list);
-      for (Value value : list) {
-        response.addMetadata(name, value.toString());
+      for (String value : list) {
+        response.addMetadata(name, value);
       }
     }
   }

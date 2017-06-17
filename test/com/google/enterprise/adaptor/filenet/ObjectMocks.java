@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.replay;
 
-import com.google.enterprise.connector.filenet4.EngineCollectionMocks.AccessPermissionListMock;
-import com.google.enterprise.connector.filenet4.api.MockObjectStore;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
+import com.google.enterprise.adaptor.filenet.MockObjectStore;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.constants.ClassNames;
-import com.filenet.api.constants.DatabaseType;
 import com.filenet.api.constants.VersionStatus;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.ObjectStore;
@@ -138,7 +137,7 @@ class ObjectMocks {
     return event;
   }
 
-  public static MockObjectStore newObjectStore(DatabaseType dbType)  {
-    return new MockObjectStore(dbType);
+  public static MockObjectStore newObjectStore()  {
+    return new MockObjectStore();
   }
 }

@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4.api;
-
-import com.google.enterprise.connector.spi.RepositoryDocumentException;
-import com.google.enterprise.connector.spi.Value;
+package com.google.enterprise.adaptor.filenet;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.ActiveMarkingList;
@@ -45,18 +42,15 @@ public interface IDocument extends IBaseObject {
 
   IVersionSeries getVersionSeries();
 
-  ActiveMarkingList get_ActiveMarkings() throws RepositoryDocumentException;
+  ActiveMarkingList get_ActiveMarkings();
 
   Folder get_SecurityFolder();
 
   Set<String> getPropertyNames();
 
-  void getProperty(String name, List<Value> list)
-      throws RepositoryDocumentException;
+  void getProperty(String name, List<String> list);
 
-  void getPropertyStringValue(String name, List<Value> list)
-      throws RepositoryDocumentException;
+  void getPropertyStringValue(String name, List<String> list);
 
-  void getPropertyDateValue(String name, List<Value> list)
-      throws RepositoryDocumentException;
+  void getPropertyDateValue(String name, List<String> list);
 }

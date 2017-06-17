@@ -12,16 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.enterprise.connector.spi.Principal;
-import com.google.enterprise.connector.spi.Property;
-import com.google.enterprise.connector.spi.RepositoryException;
-import com.google.enterprise.connector.spi.SpiConstants.CaseSensitivityType;
-import com.google.enterprise.connector.spi.SpiConstants.PrincipalType;
-import com.google.enterprise.connector.spi.Value;
 
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.property.FilterElement;
@@ -112,76 +106,6 @@ public class FileUtil {
     filter.addIncludeProperty(
         new FilterElement(null, null, null, buf.toString(), null));
     return filter;
-  }
-
-  /**
-   * Retrieve date time value from property and convert it to a proper format.
-   * @param Property prop - Document LastModified time
-   * @return String - date time in ISO8601 format including zone
-   * @throws RepositoryException
-   */
-  public static String getQueryTimeString(Property prop)
-      throws RepositoryException {
-    Value val = prop.nextValue();
-    if (prop.nextValue() != null) {
-      logger.log(Level.WARNING, "Property contains multivalue datetime");
-    }
-    return val.toString();
-  }
-
-  /**
-   * Validate the time string by:
-   * (a) appending zone portion (+/-hh:mm) or
-   * (b) inserting the colon into zone portion
-   * if it does not already have zone or colon.
-   * 
-   * @param String checkpoint - in ISO8601 format
-   * @return String - date time in ISO8601 format including zone
-   * @throws RepositoryException
-   */
-  public static String getQueryTimeString(String checkpoint) {
-    Matcher matcher = ZONE_PATTERN.matcher(checkpoint);
-    if (matcher.find()) {
-      String timeZone = matcher.group();
-      if (timeZone.length() == 5) {
-        return checkpoint.substring(0, matcher.start()) + 
-            timeZone.substring(0,3) + ":" + timeZone.substring(3);
-      } else if (timeZone.length() == 3) {
-        return checkpoint + ":00";
-      } else {
-        return checkpoint.replaceFirst("Z$", FileUtil.ZULU_WITH_COLON);
-      }
-    } else {
-      return checkpoint + ZULU_WITH_COLON;
-    }
-  }
-
-  /**
-   * Helper method to create a list of principals from names.
-   */
-  public static List<Principal> getPrincipals(PrincipalType principalType,
-      String namespace, Set<String> names,
-      CaseSensitivityType caseSensitivityType) {
-    List<Principal> principalList = new ArrayList<Principal>(names.size());
-    for (String name : names) {
-      Principal principal = new Principal(principalType, namespace,
-          convertDn(name), caseSensitivityType);
-      principalList.add(principal);
-    }
-    return principalList;
-  }
-
-  /**
-   * Helper method to add names to principal list.
-   */
-  public static void addPrincipals(List<Value> list,
-      PrincipalType principalType, String namespace, Set<String> names,
-      CaseSensitivityType caseSensitivityType) {
-    for (String name : names) {
-      Principal principal = new Principal(principalType, namespace,
-          convertDn(name), caseSensitivityType);
-      list.add(Value.getPrincipalValue(principal));
-    }
   }
 
   /**

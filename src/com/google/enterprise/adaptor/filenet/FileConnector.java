@@ -12,13 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.enterprise.connector.spi.Connector;
-import com.google.enterprise.connector.spi.RepositoryException;
-import com.google.enterprise.connector.spi.RepositoryLoginException;
-import com.google.enterprise.connector.spi.Session;
 
 import java.net.URL;
 import java.util.Set;
@@ -28,7 +24,7 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSession;
 
-public class FileConnector implements Connector {
+class FileConnector {
   private static final Logger LOGGER =
       Logger.getLogger(FileConnector.class.getName());
 
@@ -49,16 +45,7 @@ public class FileConnector implements Connector {
   private String globalNamespace;
   private String displayUrl;
 
-  // The db_timezone property is deprecated; however, its setter remains here
-  // for backward compatibility.
-
-  public void setDb_timezone(String dbTimezone) {
-    LOGGER.warning("Deprecated db_timezone property, set to " + dbTimezone +
-        ", will be ignored");
-  }
-
-  @Override
-  public Session login() throws RepositoryLoginException, RepositoryException {
+  public void login() {
     URL conf = FileConnector.class.getResource("/jaas.conf");
     if (conf != null) {
       LOGGER.info("setting sytem property java.security.auth.login.config to "
@@ -71,18 +58,10 @@ public class FileConnector implements Connector {
       // "F:\\Program Files\\GoogleConnectors\\FileNET2\\Tomcat\\webapps\\connector-manager\\WEB-INF\\classes\\jaas.conf");
     }
 
-    HostnameVerifier aa = new HostnameVerifier() {
-        @Override public boolean verify(String arg0, SSLSession arg1) {
-          return true; } };
-    HttpsURLConnection.setDefaultHostnameVerifier(aa);
-
     if (!(object_factory == null || username == null || password == null
             || object_store == null || workplace_display_url == null || content_engine_url == null)) {
       this.displayUrl = getDisplayUrl(workplace_display_url);
-      LOGGER.info("Creating fileSession object...");
-      return new FileSession(this);
     }
-    return null;
   }
 
   public String getPassword() {
