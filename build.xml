@@ -1,5 +1,5 @@
 <project name="plexi.filenet" default="build" basedir=".">
-  <description>FileNet Adaptor</description>
+  <description>Connector for FileNet</description>
   <tstamp/>
   <property name="src.dir" location="src"/>
   <property name="test.dir" location="test"/>
@@ -127,7 +127,7 @@ lib/plexi submodule or add the the command line argument
            includeantruntime="false" encoding="utf-8"
            source="${compile.java.version}" target="${compile.java.version}">
       <bootclasspath path="${compile.java.bootclasspath}"/>
-      <compilerarg line="-Xlint -Xlint:-serial"/>
+      <compilerarg line="-Xlint -Xlint:-serial -Xlint:-path"/>
       <classpath refid="adaptor.build.classpath"/>
     </javac>
 
@@ -147,7 +147,7 @@ lib/plexi submodule or add the the command line argument
            includeantruntime="false" encoding="utf-8"
            source="${compile.java.version}" target="${compile.java.version}">
       <bootclasspath path="${compile.java.bootclasspath}"/>
-      <compilerarg line="-Xlint -Xlint:-serial"/>
+      <compilerarg line="-Xlint -Xlint:-serial -Xlint:-path"/>
       <classpath refid="adaptor.build.classpath"/>
       <classpath location="${build-src.dir}"/>
       <classpath refid="junit.classpath"/>
