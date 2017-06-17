@@ -109,12 +109,12 @@ public class FileNetAdaptorTest {
     return new DocId("guid/" + id);
   }
 
-  @Ignore // TODO(bmj): this test is broken wrt UserContext assertions
+  @Ignore("TODO(bmj): this test is broken wrt UserContext assertions")
   @Test
   public void testGetConnection() throws Exception {
     // Mock sensitiveValueDecoder uppercases the value.
     Subject subject = new Subject(true, ImmutableSet.<Principal>of(),
-        ImmutableSet.of("bugger"), ImmutableSet.of("PASSWORD"));
+        ImmutableSet.of("test"), ImmutableSet.of("PASSWORD"));
     assertFalse(subject.equals(UserContext.get().getSubject()));
     adaptor.init(context);
     try (Connection connection = getConfigOptions().getConnection()) {
