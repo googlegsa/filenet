@@ -28,12 +28,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
+import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
-import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
-import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
-import com.google.enterprise.adaptor.filenet.MockObjectFactory;
-import com.google.enterprise.adaptor.filenet.MockObjectStore;
 
 import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.ClassNames;
@@ -56,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+/** Tests for DocumentTraverser. */
 public class DocumentTraverserTest extends TraverserFactoryFixture {
   private static final SimpleDateFormat dateFormatter =
       new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");

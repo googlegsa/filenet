@@ -15,7 +15,6 @@
 package com.google.enterprise.adaptor.filenet;
 
 import static org.easymock.EasyMock.anyBoolean;
-import static org.easymock.EasyMock.anyInt;
 import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.createNiceMock;
@@ -30,11 +29,8 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
-import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.SecurityPolicySetMock;
 
 import com.filenet.api.collection.AccessPermissionList;
-import com.filenet.api.collection.DocumentSet;
-import com.filenet.api.collection.FolderSet;
 import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.AccessRight;
 import com.filenet.api.constants.GuidConstants;
@@ -58,8 +54,10 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-// Some JVMs require this class to be public in order for JUnit to
-// call newInstance on the subclasses.
+/**
+ * Some JVMs require this class to be public in order for JUnit to
+ * call newInstance on the subclasses.
+ */
 public class TraverserFactoryFixture {
   private final List<Object> mocksToVerify = new ArrayList<>();
 

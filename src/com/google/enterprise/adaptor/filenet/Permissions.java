@@ -38,7 +38,7 @@ import java.util.logging.Logger;
  * responsible to authorize a target user against all the Access Control Entries
  * of a target document.
  */
-public class Permissions {
+class Permissions {
   private static final Logger LOGGER =
       Logger.getLogger(Permissions.class.getName());
 
@@ -64,9 +64,9 @@ public class Permissions {
   public static final String AUTHENTICATED_USERS = "#AUTHENTICATED-USERS";
   private static final String CREATOR_OWNER = "#CREATOR-OWNER";
 
-  private static int VIEW_ACCESS_RIGHTS =
+  private static final int VIEW_ACCESS_RIGHTS =
       AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
-  private static int USE_MARKING = AccessRight.USE_MARKING_AS_INT;
+  private static final int USE_MARKING = AccessRight.USE_MARKING_AS_INT;
 
   private final AccessPermissionList perms;
   private final String owner;

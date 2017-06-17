@@ -75,8 +75,8 @@ public class FnDocument implements IDocument {
     this.metas = getMetas();
   }
 
-  private Map<String,Property> getMetas() {
-    Map<String,Property> propMap = new HashMap<String,Property>();
+  private Map<String, Property> getMetas() {
+    Map<String, Property> propMap = new HashMap<>();
     Properties props = doc.getProperties();
     Property[] propList = props.toArray();
     for (Property property : propList) {
@@ -175,31 +175,31 @@ public class FnDocument implements IDocument {
       logger.log(Level.FINEST, "Property not found: {0}", name);
       return;
     }
-    if (prop instanceof PropertyString ||
-        prop instanceof PropertyStringList) {
+    if (prop instanceof PropertyString
+        || prop instanceof PropertyStringList) {
       logger.log(Level.FINEST, "Getting String property: [{0}]", name);
       getPropertyStringValue(name, list);
-    } else if (prop instanceof PropertyBinary ||
-        prop instanceof PropertyBinaryList) {
+    } else if (prop instanceof PropertyBinary
+        || prop instanceof PropertyBinaryList) {
       logger.log(Level.FINEST, "Binary property [{0}] is not supported.", name);
-    } else if (prop instanceof PropertyBoolean ||
-        prop instanceof PropertyBooleanList) {
+    } else if (prop instanceof PropertyBoolean
+        || prop instanceof PropertyBooleanList) {
       logger.log(Level.FINEST, "Getting Boolean property: [{0}]", name);
       getPropertyBooleanValue(name, list);
-    } else if (prop instanceof PropertyDateTime ||
-        prop instanceof PropertyDateTimeList) {
+    } else if (prop instanceof PropertyDateTime
+        || prop instanceof PropertyDateTimeList) {
       logger.log(Level.FINEST, "Getting Date property: [{0}]", name);
       getPropertyDateValue(name, list);
-    } else if (prop instanceof PropertyFloat64 ||
-        prop instanceof PropertyFloat64List) {
+    } else if (prop instanceof PropertyFloat64
+        || prop instanceof PropertyFloat64List) {
       logger.log(Level.FINEST, "Getting Double/Float property: [{0}]", name);
       getPropertyDoubleValue(name, list);
-    } else if (prop instanceof PropertyInteger32 ||
-        prop instanceof PropertyInteger32List) {
+    } else if (prop instanceof PropertyInteger32
+        || prop instanceof PropertyInteger32List) {
       logger.log(Level.FINEST, "Getting Integer/Long property: [{0}]", name);
       getPropertyLongValue(name, list);
-    } else if (prop instanceof PropertyId ||
-        prop instanceof PropertyIdList) {
+    } else if (prop instanceof PropertyId
+        || prop instanceof PropertyIdList) {
       logger.log(Level.FINEST, "Getting Id property: [{0}]", name);
       getPropertyGuidValue(name, list);
     } else {

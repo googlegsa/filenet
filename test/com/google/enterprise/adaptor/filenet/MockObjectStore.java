@@ -21,7 +21,7 @@ import com.filenet.api.util.Id;
 
 import java.util.HashMap;
 
-public class MockObjectStore implements IObjectStore {
+class MockObjectStore implements IObjectStore {
   private final HashMap<Id, Document> objects = new HashMap<>();
 
   public MockObjectStore() {

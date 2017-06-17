@@ -81,7 +81,9 @@ class EngineCollectionMocks {
 
   public static class DocumentSetMock
       extends EngineSetMock<Document> implements DocumentSet {
-    public DocumentSetMock() { super(); }
+    public DocumentSetMock() {
+      super();
+    }
     public DocumentSetMock(Collection<? extends Document> values) {
       super(values);
     }
@@ -89,19 +91,29 @@ class EngineCollectionMocks {
 
   public static class FolderSetMock
       extends EngineSetMock<Folder> implements FolderSet {
-    public FolderSetMock() { super(); }
-    public FolderSetMock(Collection<? extends Folder> values) { super(values); }
+    public FolderSetMock() {
+      super();
+    }
+    public FolderSetMock(Collection<? extends Folder> values) {
+      super(values);
+    }
   }
 
   public static class GroupSetMock
       extends EngineSetMock<Group> implements GroupSet {
-    public GroupSetMock() { super(); }
-    public GroupSetMock(Collection<? extends Group> values) { super(values); }
+    public GroupSetMock() {
+      super();
+    }
+    public GroupSetMock(Collection<? extends Group> values) {
+      super(values);
+    }
   }
 
   public static class IndependentObjectSetMock
       extends EngineSetMock<IndependentObject> implements IndependentObjectSet {
-    public IndependentObjectSetMock() { super(); }
+    public IndependentObjectSetMock() {
+      super();
+    }
     public IndependentObjectSetMock(
         Collection<? extends IndependentObject> values) {
       super(values);
@@ -110,7 +122,9 @@ class EngineCollectionMocks {
 
   public static class SecurityPolicySetMock
       extends EngineSetMock<SecurityPolicy> implements SecurityPolicySet {
-    public SecurityPolicySetMock() { super(); }
+    public SecurityPolicySetMock() {
+      super();
+    }
     public SecurityPolicySetMock(Collection<? extends SecurityPolicy> values) {
       super(values);
     }

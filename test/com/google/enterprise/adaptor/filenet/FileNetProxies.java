@@ -17,8 +17,8 @@ package com.google.enterprise.adaptor.filenet;
 import com.google.common.collect.ImmutableSet;
 
 import com.filenet.api.collection.PropertyDefinitionList;
-import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
 import java.security.Principal;

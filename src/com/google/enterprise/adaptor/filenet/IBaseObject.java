@@ -16,7 +16,6 @@ package com.google.enterprise.adaptor.filenet;
 
 import com.filenet.api.util.Id;
 
-public interface IBaseObject {
-
+interface IBaseObject {
   Id get_Id();
 }

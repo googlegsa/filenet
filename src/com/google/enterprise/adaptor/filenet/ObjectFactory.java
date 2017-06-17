@@ -15,7 +15,6 @@
 package com.google.enterprise.adaptor.filenet;
 
 import com.filenet.api.collection.PropertyDefinitionList;
-import com.filenet.api.core.Domain;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
@@ -24,12 +23,11 @@ import com.filenet.api.util.Id;
  * Factory for producing instances various FileNet Objects.
  */
 interface ObjectFactory {
-
-  public Connection getConnection(String contentEngineUri,
+  Connection getConnection(String contentEngineUri,
       String username, String password)
       throws EngineRuntimeException;
 
-  public IObjectStore getObjectStore(Connection connection,
+  IObjectStore getObjectStore(Connection connection,
       String objectStoreName) throws EngineRuntimeException;
 
   PropertyDefinitionList getPropertyDefinitions(

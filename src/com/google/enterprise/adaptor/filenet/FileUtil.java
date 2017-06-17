@@ -21,55 +21,48 @@ import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.property.FilterElement;
 import com.filenet.api.property.PropertyFilter;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-public class FileUtil {
+class FileUtil {
   private static final Logger logger =
       Logger.getLogger(FileUtil.class.getName());
-
-  private static final Pattern ZONE_PATTERN =
-      Pattern.compile("(?:(Z)|([+-][0-9]{2})(:)?([0-9]{2})?)$");
-
-  private static final String ZULU_WITH_COLON = "+00:00";
 
   private FileUtil() {
   }
 
   /**
-   * getShortName takes a string as parameter and parses it to get the shortname. It supports User Principle Name
-   * (UPN) and Full Distinguished Name (DN) format.
+   * getShortName takes a string as parameter and parses it to get the
+   * shortname. It supports User Principle Name (UPN) and Full
+   * Distinguished Name (DN) format.
+   *
    * @param longName Username in the form of UPN or Full DN format.
-   * @return ShortName of the Username (Which may be in one of the form i.e. UPN or Full DN format.)
+   * @return ShortName of the Username (Which may be in one of the
+   *     form i.e. UPN or Full DN format.)
    */
   public static String getShortName(String longName) {
-    StringTokenizer strtok = new StringTokenizer(longName,",");
+    StringTokenizer strtok = new StringTokenizer(longName, ",");
     String shortUserName = null;
     if (strtok.countTokens() > 1) {
-      while ((null!=strtok) && (strtok.hasMoreTokens())) {
-
+      while (strtok != null && strtok.hasMoreTokens()) {
         String mytok1 = strtok.nextToken();
-        if (null!=mytok1) {
+        if (mytok1 != null) {
           //filter for the shortened name
-          StringTokenizer innerToken = new StringTokenizer(mytok1,"=");
-          if ((null!=innerToken)&&(innerToken.countTokens()==2)) {
+          StringTokenizer innerToken = new StringTokenizer(mytok1, "=");
+          if (innerToken != null && innerToken.countTokens() == 2) {
             String key = innerToken.nextToken();
-            if (null!=key) {
-              if ((key.equalsIgnoreCase("cn"))||(key.equalsIgnoreCase("uid"))) {
+            if (key != null) {
+              if (key.equalsIgnoreCase("cn") || key.equalsIgnoreCase("uid")) {
                 shortUserName = innerToken.nextToken();
                 break;
               }
             }
           }
-        } //end:if (null!=mytok1) {
-      } //end: while
+        }
+      }
     } else if (longName.contains("@")) {
       shortUserName = longName.substring(0, longName.indexOf("@"));
     }
