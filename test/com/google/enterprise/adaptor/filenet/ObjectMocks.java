@@ -136,8 +136,4 @@ class ObjectMocks {
     replay(vs, os, event);
     return event;
   }
-
-  public static MockObjectStore newObjectStore()  {
-    return new MockObjectStore();
-  }
 }

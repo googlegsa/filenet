@@ -14,6 +14,9 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.enterprise.adaptor.Config;
+import com.google.enterprise.adaptor.SensitiveValueDecoder;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
 
 import com.filenet.api.collection.AccessPermissionList;
@@ -24,19 +27,37 @@ import com.filenet.api.security.AccessPermission;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 class TestObjectFactory {
-  public static FileConnector newFileConnector() {
-    FileConnector connector = new FileConnector();
-    connector.setUsername("whatever");
-    connector.setPassword("opensesame");
-    connector.setObject_store("ObjStore");
-    connector.setWorkplace_display_url("http://localhost/getContent");
-    connector.setObject_factory(FileNetProxies.class.getName());
-    connector.setContent_engine_url("http://localhost/wsi/FNCEWS40MTOM");
-    connector.setGoogleGlobalNamespace("ns");
-    connector.login();
-    return connector;
+  private static final SensitiveValueDecoder SENSITIVE_VALUE_DECODER =
+      new SensitiveValueDecoder() {
+        @Override
+        public String decodeValue(String notEncodedDuringTesting) {
+          return notEncodedDuringTesting;
+        }
+      };
+
+  public static ConfigOptions newConfigOptions() {
+    return newConfigOptions(ImmutableMap.<String, String>of());
+  }
+
+  public static ConfigOptions newConfigOptions(Map<String, String> extra) {
+    FileNetAdaptor adaptor = new FileNetAdaptor();
+    Config config = new Config();
+    adaptor.initConfig(config);
+    config.overrideKey("filenet.username", "whatever");
+    config.overrideKey("filenet.password", "opensesame");
+    config.overrideKey("filenet.objectStore", "ObjStore");
+    config.overrideKey("filenet.displayUrl", "http://localhost/getContent");
+    config.overrideKey("filenet.objectFactory", FileNetProxies.class.getName());
+    config.overrideKey("filenet.contentEngineUrl",
+        "http://localhost/wsi/FNCEWS40MTOM");
+    config.overrideKey("adaptor.namespace", "ns");
+    for (Map.Entry<String, String> entry : extra.entrySet()) {
+      config.overrideKey(entry.getKey(), entry.getValue());
+    }
+    return new ConfigOptions(config, SENSITIVE_VALUE_DECODER);
   }
 
   // TODO(tdnguyen): Combine this method with similar methods in
