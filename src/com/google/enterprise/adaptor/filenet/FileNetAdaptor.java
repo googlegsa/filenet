@@ -106,11 +106,11 @@ public class FileNetAdaptor extends AbstractAdaptor {
     return configOptions;
   }
 
-  private static DocId newDocId(Checkpoint checkpoint) {
+  static DocId newDocId(Checkpoint checkpoint) {
     return new DocId("pseudo/" + checkpoint);
   }
 
-  private static DocId newDocId(Id id) {
+  static DocId newDocId(Id id) {
     return new DocId("guid/" + id);
   }
 
