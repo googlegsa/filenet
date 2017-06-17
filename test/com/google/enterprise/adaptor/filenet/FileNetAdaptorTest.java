@@ -64,8 +64,7 @@ public class FileNetAdaptorTest {
 
   @Before
   public void setUp() throws Exception {
-    FileNetProxies proxies = new FileNetProxies();
-    adaptor = new FileNetAdaptor(proxies);
+    adaptor = new FileNetAdaptor();
     context = ProxyAdaptorContext.getInstance();
     config = context.getConfig();
     adaptor.initConfig(config);
