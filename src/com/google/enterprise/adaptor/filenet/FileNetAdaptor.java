@@ -54,20 +54,14 @@ public class FileNetAdaptor extends AbstractAdaptor {
   private static final Logger logger =
       Logger.getLogger(FileNetAdaptor.class.getName());
 
-  private final ObjectFactory factory;
-
+  private ObjectFactory factory;
   private AdaptorContext context;
   private ConfigOptions configOptions;
 
   private Traverser documentTraverser;
 
   public static void main(String[] args) {
-    AbstractAdaptor.main(new FileNetAdaptor(new FileNetObjectFactory()), args);
-  }
-
-  @VisibleForTesting
-  FileNetAdaptor(ObjectFactory factory) {
-    this.factory = factory;
+    AbstractAdaptor.main(new FileNetAdaptor(), args);
   }
 
   @Override
