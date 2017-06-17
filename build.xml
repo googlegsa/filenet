@@ -1,5 +1,5 @@
 <project name="plexi.filenet" default="build" basedir=".">
-  <description>FileNet Adaptor</description>
+  <description>Connector for FileNet</description>
   <tstamp/>
   <property name="src.dir" location="src"/>
   <property name="test.dir" location="test"/>
@@ -17,7 +17,6 @@
   <property name="javadoc.dir" location="${build.dir}/javadoc"/>
   <property name="resource.dir" location="resources"/>
   <property name="lib.dir" location="lib"/>
-  <property name="junit.jar" location="${lib.dir}/junit-4.8.2.jar"/>
   <property name="adaptor.class"
     value="com.google.enterprise.adaptor.filenet.FileNetAdaptor"/>
   <property name="adaptor.args" value=""/>
@@ -41,14 +40,6 @@
   <property name="compile.java.version" value="7"/>
   <property name="compile.java.bootclasspath" value="${build.bootclasspath}"/>
 
-  <!-- Adaptor suffix for distribution files. Useful for placing version numbers
-       on our jars. -->
-  <condition property="adaptor.suffix" value="-${adaptor.version}">
-    <isset property="adaptor.version"/>
-  </condition>
-  <!-- If adaptor.version isn't set, simply use the current date. -->
-  <property name="adaptor.suffix" value="-${DSTAMP}"/>
-
   <path id="adaptor.build.classpath">
 <!--
     <fileset dir="${lib.dir}">
@@ -60,6 +51,13 @@
 
   <path id="adaptor.run.classpath">
     <path refid="adaptor.build.classpath"/>
+  </path>
+
+  <path id="junit.classpath">
+    <fileset dir="${lib.dir}">
+      <include name="junit-4.11.jar"/>
+      <include name="hamcrest-core-1.3.jar"/>
+    </fileset>
   </path>
 
   <path id="cobertura.classpath">
@@ -140,7 +138,7 @@ lib/plexi submodule or add the the command line argument
            source="${compile.java.version}" target="${compile.java.version}">
       <bootclasspath path="${compile.java.bootclasspath}"/>
       <compilerarg line="-Xlint -Xlint:-serial"/>
-      <classpath location="${junit.jar}"/>
+      <classpath refid="junit.classpath"/>
       <include name="JUnitLogFixFormatter.java"/>
     </javac>
 
@@ -152,7 +150,7 @@ lib/plexi submodule or add the the command line argument
       <compilerarg line="-Xlint -Xlint:-serial -Xlint:-path"/>
       <classpath refid="adaptor.build.classpath"/>
       <classpath location="${build-src.dir}"/>
-      <classpath location="${junit.jar}"/>
+      <classpath refid="junit.classpath"/>
     </javac>
   </target>
 
@@ -163,7 +161,7 @@ lib/plexi submodule or add the the command line argument
       <arg value="--always"/>
     </exec>
     <!-- Set version if git describe failed. -->
-    <property name="adaptor.version" value="unknown"/>
+    <property name="adaptor.version" value="unknown-${DSTAMP}"/>
   </target>
 
   <target name="dist" description="Generate distribution binaries"
@@ -180,6 +178,15 @@ lib/plexi submodule or add the the command line argument
     <mkdir dir="${build.dir}/dist/staging"/>
     <mkdir dir="${dist.dir}"/>
 
+    <!-- Set the file name suffix from the version. Add a leading dash,
+         and strip a leading "v" prefix if it is followed by a digit. -->
+    <loadresource property="adaptor.suffix">
+      <propertyresource name="adaptor.version"/>
+      <filterchain>
+          <replaceregex pattern="^(v(?=\d))?" replace="-"/>
+      </filterchain>
+    </loadresource>
+
     <!-- Concatenate dependent JARs together into a comma-delimited list. -->
     <pathconvert pathsep=" " refid="adaptor.run.classpath"
       property="tmp.adaptor.classpath">
@@ -193,7 +200,7 @@ lib/plexi submodule or add the the command line argument
         <attribute name="Class-Path" value="${tmp.adaptor.classpath}"/>
         <section name="com/google/enterprise/adaptor/filenet/">
           <attribute name="Implementation-Title"
-            value="Google FileNet Adaptor"/>
+            value="Google Search Appliance Connector for FileNet"/>
           <attribute name="Implementation-Vendor" value="Google Inc."/>
           <attribute name="Implementation-Version"
             value="${adaptor.version}"/>
@@ -271,7 +278,7 @@ lib/plexi submodule or add the the command line argument
         file="${build-instrument.dir}/cobertura.ser"/>
       <classpath refid="adaptor.run.classpath"/>
       <classpath refid="cobertura.classpath"/>
-      <classpath location="${junit.jar}"/>
+      <classpath refid="junit.classpath"/>
       <classpath location="${build-instrument.dir}"/>
       <classpath location="${build-src.dir}"/>
       <classpath location="${build-test.dir}"/>
