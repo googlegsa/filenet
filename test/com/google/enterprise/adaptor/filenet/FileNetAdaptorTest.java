@@ -271,6 +271,16 @@ public class FileNetAdaptorTest {
   }
 
   @Test
+  public void testGetDocContent_invalidGuid() throws Exception {
+    adaptor.init(context);
+
+    RecordingResponse response = new RecordingResponse();
+    adaptor.getDocContent(new MockRequest(newDocId("guid/invalid-guid")),
+        response);
+    assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
+  }
+
+  @Test
   public void testGetDocContent_shortCheckpoint() throws Exception {
     config.overrideKey("feed.maxUrls", "5");
     adaptor.init(context);
