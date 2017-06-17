@@ -139,7 +139,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
           case "document":
             documentTraverser.getDocIds(checkpoint, context.getDocIdPusher());
             resp.setNoIndex(true);
-            resp.getOutputStream();
+            resp.respondNoContent();
             break;
           default:
             logger.log(Level.WARNING, "Unsupported type: " + checkpoint);
