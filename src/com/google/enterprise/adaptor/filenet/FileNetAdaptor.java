@@ -82,7 +82,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
     config.addKey("filenet.username", null);
     config.addKey("filenet.password", null);
     config.addKey("filenet.objectStore", null);
-    config.addKey("filenet.objectFactory", FileNetObjectFactory.class.getName());
+    config.addKey("filenet.objectFactory",
+        FileNetObjectFactory.class.getName());
     config.addKey("filenet.displayUrl", null);
     config.addKey("filenet.additionalWhereClause", "");
     config.addKey("filenet.deleteAdditionalWhereClause", "");

@@ -21,6 +21,7 @@ import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Traverser;
 import static com.google.enterprise.adaptor.filenet.Logging.captureLogMessages;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -39,6 +40,7 @@ import com.filenet.api.util.UserContext;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -107,12 +109,12 @@ public class FileNetAdaptorTest {
     return new DocId("guid/" + id);
   }
 
-  /* TODO(bmj): this test is broken wrt UserContext assertions
+  @Ignore // TODO(bmj): this test is broken wrt UserContext assertions
   @Test
   public void testGetConnection() throws Exception {
     // Mock sensitiveValueDecoder uppercases the value.
     Subject subject = new Subject(true, ImmutableSet.<Principal>of(),
-        ImmutableSet.of("test"), ImmutableSet.of("PASSWORD"));
+        ImmutableSet.of("bugger"), ImmutableSet.of("PASSWORD"));
     assertFalse(subject.equals(UserContext.get().getSubject()));
     adaptor.init(context);
     try (Connection connection = getConfigOptions().getConnection()) {
@@ -122,7 +124,6 @@ public class FileNetAdaptorTest {
     }
     assertFalse(subject.equals(UserContext.get().getSubject()));
   }
-  */
 
   @Test
   public void testCheckpoint_ctor_nullCheckpoint() {
@@ -264,8 +265,7 @@ public class FileNetAdaptorTest {
     config.overrideKey("filenet.objectStore", objectStore);
     adaptor.init(context);
     Connection conn = getConfigOptions().getConnection();
-    // TODO(bmj): use hamcrest.isA
-    assertTrue(getConfigOptions().getObjectStore(conn) instanceof ObjectStore);
+    assertNotNull(getConfigOptions().getObjectStore(conn));
   }
 
   @Test
@@ -298,7 +298,7 @@ public class FileNetAdaptorTest {
     config.overrideKey("filenet.objectFactory",
         "com.google.enterprise.adaptor.filenet.UnknownFactory");
     thrown.expect(InvalidConfigurationException.class);
-    thrown.expectMessage("Class not found");
+    thrown.expectMessage("Unable to instantiate object factory");
     adaptor.init(context);
   }
 
@@ -388,8 +388,7 @@ public class FileNetAdaptorTest {
   @Test
   public void testInit_globalNamespace_default() throws Exception {
     adaptor.init(context);
-    assertEquals(DEFAULT_NAMESPACE,
-        getConfigOptions().getGlobalNamespace());
+    assertEquals(DEFAULT_NAMESPACE, getConfigOptions().getGlobalNamespace());
   }
 
   @Test

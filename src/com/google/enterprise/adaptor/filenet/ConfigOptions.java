@@ -52,7 +52,8 @@ class ConfigOptions {
   private final String globalNamespace;
   private final int maxFeedUrls;
 
-  public ConfigOptions(AdaptorContext context) throws InvalidConfigurationException {
+  public ConfigOptions(AdaptorContext context)
+      throws InvalidConfigurationException {
     Config config = context.getConfig();
     sensitiveValueDecoder = context.getSensitiveValueDecoder();
 
@@ -83,15 +84,10 @@ class ConfigOptions {
     try {
       objectFactory =
           (ObjectFactory) Class.forName(objectFactoryName).newInstance();
-    } catch (InstantiationException e) {
+    } catch (ClassNotFoundException | InstantiationException
+             | IllegalAccessException e) {
       throw new InvalidConfigurationException(
           "Unable to instantiate object factory: " + objectFactoryName, e);
-    } catch (IllegalAccessException e) {
-      throw new InvalidConfigurationException(
-          "Access denied to object factory class: " + objectFactoryName, e);
-    } catch (ClassNotFoundException e) {
-      throw new InvalidConfigurationException(
-          "Class not found: " + objectFactoryName, e);
     }
     logger.log(Level.CONFIG, "filenet.objectFactory: {0}", objectFactoryName);
 
@@ -118,30 +114,30 @@ class ConfigOptions {
 
     markAllDocsAsPublic =
         Boolean.parseBoolean(config.getValue("adaptor.markAllDocsAsPublic"));
-    logger.log(Level.CONFIG, "adaptor.markAllDocsAsPublic"
-        + markAllDocsAsPublic);
+    logger.log(Level.CONFIG, "adaptor.markAllDocsAsPublic: {0}",
+        markAllDocsAsPublic);
 
     globalNamespace = config.getValue("adaptor.namespace");
-    logger.log(Level.CONFIG, "adaptor.namespace: " + globalNamespace);
+    logger.log(Level.CONFIG, "adaptor.namespace: {0}", globalNamespace);
 
     // TODO(bmj): validate where clauses
     additionalWhereClause = config.getValue("filenet.additionalWhereClause");
-    logger.log(Level.CONFIG, "filenet.additionalWhereClause: "
-        + additionalWhereClause);
+    logger.log(Level.CONFIG, "filenet.additionalWhereClause: {0}",
+        additionalWhereClause);
     deleteAdditionalWhereClause =
         config.getValue("filenet.deleteAdditionalWhereClause");
-    logger.log(Level.CONFIG, "filenet.deleteAdditionalWhereClause: "
-        + deleteAdditionalWhereClause);
+    logger.log(Level.CONFIG, "filenet.deleteAdditionalWhereClause: {0}",
+        deleteAdditionalWhereClause);
 
     // TODO(bmj): validate column names?
     excludedMetadata = ImmutableSet.copyOf(
         splitter.split(config.getValue("filenet.excludedMetadata")));
-    logger.log(Level.CONFIG, "filenet.excludedMetadata: " + excludedMetadata);
+    logger.log(Level.CONFIG, "filenet.excludedMetadata: {0}", excludedMetadata);
 
     // TODO(bmj): validate column names?
     includedMetadata = ImmutableSet.copyOf(
         splitter.split(config.getValue("filenet.includedMetadata")));
-    logger.log(Level.CONFIG, "filenet.includedMetadata: " + includedMetadata);
+    logger.log(Level.CONFIG, "filenet.includedMetadata: {0}", includedMetadata);
 
     try {
       maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
@@ -153,6 +149,7 @@ class ConfigOptions {
       throw new InvalidConfigurationException(
           "Invalid feed.maxUrls value: " + config.getValue("feed.maxUrls"));
     }
+    logger.log(Level.CONFIG, "feed.maxUrls: {0}", maxFeedUrls);
   }
 
   public String getContentEngineUrl() {
