@@ -159,7 +159,15 @@ public class FileNetAdaptor extends AbstractAdaptor {
         }
         break;
       case "guid":
-        documentTraverser.getDocContent(new Id(idParts[1]), req, resp);
+        Id guid;
+        try {
+          guid = new Id(idParts[1]);
+        } catch (EngineRuntimeException e) {
+          logger.log(Level.FINE, "Invalid DocId: " + id, e);
+          resp.respondNotFound();
+          return;
+        }
+        documentTraverser.getDocContent(guid, req, resp);
         break;
       default:
         logger.log(Level.FINE, "Invalid DocId: {0}", id);
