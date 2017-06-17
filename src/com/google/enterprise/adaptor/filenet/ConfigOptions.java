@@ -16,8 +16,12 @@ package com.google.enterprise.adaptor.filenet;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
+import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.InvalidConfigurationException;
+import com.google.enterprise.adaptor.SensitiveValueDecoder;
+
+import com.filenet.api.core.ObjectStore;
 
 import java.net.URISyntaxException;
 import java.util.Set;
@@ -25,22 +29,22 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 // TODO(bmj): move this into FileNetAdaptor?
-class Params {
+class ConfigOptions {
   private static final Logger logger =
-      Logger.getLogger(Params.class.getName());
+      Logger.getLogger(ConfigOptions.class.getName());
 
   private static final Splitter splitter =
       Splitter.on(',').omitEmptyStrings().trimResults();
 
+  private final SensitiveValueDecoder sensitiveValueDecoder;
   private final String contentEngineUrl;
   private final String username;
   private final String password;
-  private final String objectStore;
+  private final String objectStoreName;
 
-  private final String objectFactory;
+  private final ObjectFactory objectFactory;
   private final String displayUrl;
-  private final boolean isPublic;
-  private final boolean pushAcls;
+  private final boolean markAllDocsAsPublic;
   private final String additionalWhereClause;
   private final String deleteAdditionalWhereClause;
   private final Set<String> includedMetadata;
@@ -48,7 +52,10 @@ class Params {
   private final String globalNamespace;
   private final int maxFeedUrls;
 
-  public Params(Config config) throws InvalidConfigurationException {
+  public ConfigOptions(AdaptorContext context) throws InvalidConfigurationException {
+    Config config = context.getConfig();
+    sensitiveValueDecoder = context.getSensitiveValueDecoder();
+
     contentEngineUrl = config.getValue("filenet.contentEngineUrl");
     logger.log(Level.CONFIG, "filenet.contentEngineUrl: {0}", contentEngineUrl);
     try {
@@ -58,34 +65,46 @@ class Params {
           "Invalid filenet.contentEngineUrl: " + e.getMessage());
     }
 
-    objectStore = config.getValue("filenet.objectStore").trim();
-    if (objectStore.isEmpty()) {
-      throw new InvalidConfigurationException("filenet.objectStore may not be empty");
+    objectStoreName = config.getValue("filenet.objectStore");
+    if (objectStoreName.isEmpty()) {
+      throw new InvalidConfigurationException(
+          "filenet.objectStore may not be empty");
     }
-    logger.log(Level.CONFIG, "filenet.objectStore: {0}", objectStore);
+    logger.log(Level.CONFIG, "filenet.objectStore: {0}", objectStoreName);
 
     username = config.getValue("filenet.username");
     password = config.getValue("filenet.password");
 
-    // TODO(bmj): load the object factor?
-    objectFactory = config.getValue("filenet.objectFactory").trim();
-    if (objectFactory.isEmpty()) {
+    String objectFactoryName = config.getValue("filenet.objectFactory");
+    if (objectFactoryName.isEmpty()) {
       throw new InvalidConfigurationException(
           "filenet.objectFactory may not be empty");
     }
-    logger.log(Level.CONFIG, "filenet.objectFactory: {0}", objectFactory);
+    try {
+      objectFactory =
+          (ObjectFactory) Class.forName(objectFactoryName).newInstance();
+    } catch (InstantiationException e) {
+      throw new InvalidConfigurationException(
+          "Unable to instantiate object factory: " + objectFactoryName, e);
+    } catch (IllegalAccessException e) {
+      throw new InvalidConfigurationException(
+          "Access denied to object factory class: " + objectFactoryName, e);
+    } catch (ClassNotFoundException e) {
+      throw new InvalidConfigurationException(
+          "Class not found: " + objectFactoryName, e);
+    }
+    logger.log(Level.CONFIG, "filenet.objectFactory: {0}", objectFactoryName);
 
-    // TODO(bmj): If empty, can I base it off of contentEngineUrl?
-    String workplaceUrl = config.getValue("filenet.displayUrl").trim();
+    String workplaceUrl = config.getValue("filenet.displayUrl");
     if (workplaceUrl.endsWith("/getContent/")) {
       workplaceUrl = workplaceUrl.substring(0, workplaceUrl.length() - 1);
     }
     if (workplaceUrl.contains("/getContent")
         && workplaceUrl.endsWith("/getContent")) {
-      workplaceUrl += "?objectStoreName=" + objectStore
+      workplaceUrl += "?objectStoreName=" + objectStoreName
           + "&objectType=document&versionStatus=1&vsId=";
     } else {
-      workplaceUrl += "/getContent?objectStoreName=" + objectStore
+      workplaceUrl += "/getContent?objectStoreName=" + objectStoreName
           + "&objectType=document&versionStatus=1&vsId=";
     }
     displayUrl = workplaceUrl;
@@ -97,14 +116,12 @@ class Params {
           "Invalid displayUrl: " + e.getMessage());
     }
 
-    isPublic = Boolean.parseBoolean(config.getValue("filenet.isPublic").trim());
-    logger.log(Level.CONFIG, "filenet.isPublic: " + isPublic);
+    markAllDocsAsPublic =
+        Boolean.parseBoolean(config.getValue("adaptor.markAllDocsAsPublic"));
+    logger.log(Level.CONFIG, "adaptor.markAllDocsAsPublic"
+        + markAllDocsAsPublic);
 
-    String pushAclsStr = config.getValue("filenet.pushAcls").trim();
-    pushAcls = pushAclsStr.isEmpty() ? true : Boolean.parseBoolean(pushAclsStr);
-    logger.log(Level.CONFIG, "filenet.pushAcls: " + pushAcls);
-
-    globalNamespace = config.getValue("adaptor.namespace").trim();
+    globalNamespace = config.getValue("adaptor.namespace");
     logger.log(Level.CONFIG, "adaptor.namespace: " + globalNamespace);
 
     // TODO(bmj): validate where clauses
@@ -127,7 +144,7 @@ class Params {
     logger.log(Level.CONFIG, "filenet.includedMetadata: " + includedMetadata);
 
     try {
-      maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls").trim());
+      maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
       if (maxFeedUrls < 2) {
         throw new InvalidConfigurationException(
             "feed.maxUrls must be greater than 1: " + maxFeedUrls);
@@ -150,25 +167,25 @@ class Params {
     return password;
   }
 
-  public String getObjectStore() {
-    return objectStore;
+  public ObjectFactory getObjectFactory() {
+    return objectFactory;
   }
 
-  // TODO(bmj): have this return the actual object factory?
-  public String getObjectFactory() {
-    return objectFactory;
+  public Connection getConnection() {
+    return objectFactory.getConnection(contentEngineUrl, username,
+        sensitiveValueDecoder.decodeValue(password));
+  }
+
+  public ObjectStore getObjectStore(Connection connection) {
+    return objectFactory.getObjectStore(connection, objectStoreName);
   }
 
   public String getDisplayUrl() {
     return displayUrl;
   }
 
-  public boolean isPublic() {
-    return isPublic;
-  }
-
-  public boolean pushAcls() {
-    return pushAcls;
+  public boolean markAllDocsAsPublic() {
+    return markAllDocsAsPublic;
   }
 
   public String getGlobalNamespace() {

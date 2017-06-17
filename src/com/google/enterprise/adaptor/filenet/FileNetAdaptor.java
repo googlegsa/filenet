@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.IOHelper.copyStream;
+import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.US;
 
@@ -27,8 +29,6 @@ import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
-import com.google.enterprise.adaptor.InvalidConfigurationException;
-import com.google.enterprise.adaptor.Principal;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
@@ -63,7 +63,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
   private final ObjectFactory factory;
 
   private AdaptorContext context;
-  private Params params;
+  private ConfigOptions configOptions;
 
   private Traverser documentTraverser;
 
@@ -82,44 +82,33 @@ public class FileNetAdaptor extends AbstractAdaptor {
     config.addKey("filenet.username", null);
     config.addKey("filenet.password", null);
     config.addKey("filenet.objectStore", null);
-    config.addKey("filenet.objectFactory", null);
+    config.addKey("filenet.objectFactory", FileNetObjectFactory.class.getName());
     config.addKey("filenet.displayUrl", null);
-    config.addKey("filenet.isPublic", "false");
-    config.addKey("filenet.pushAcls", "true");
     config.addKey("filenet.additionalWhereClause", "");
     config.addKey("filenet.deleteAdditionalWhereClause", "");
     config.addKey("filenet.excludedMetadata", "");
     config.addKey("filenet.includedMetadata", "");
-    config.addKey("adaptor.namespace", Principal.DEFAULT_NAMESPACE);
+    config.addKey("adaptor.namespace", DEFAULT_NAMESPACE);
   }
 
   @Override
   public void init(AdaptorContext context) throws Exception {
     this.context = context;
-    this.params = new Params(context.getConfig());
+    this.configOptions = new ConfigOptions(context);
 
-    try (Connection connection = getConnection()) {
-      logger.log(Level.INFO, "Connecting to object store {0}",
-          params.getObjectStore());
-      factory.getObjectStore(connection, params.getObjectStore());
+    try (Connection connection = configOptions.getConnection()) {
+      configOptions.getObjectStore(connection);
     } catch (EngineRuntimeException e) {
       throw new StartupException(
           "Failed to access content engine's object store", e);
     }
 
-    documentTraverser = new MockTraverser(params);
-  }
-
-  Params getParams() {
-    return params;
+    documentTraverser = new MockTraverser(configOptions);
   }
 
   @VisibleForTesting
-  Connection getConnection() {
-    return factory.getConnection(
-        params.getContentEngineUrl(),
-        params.getUsername(),
-        context.getSensitiveValueDecoder().decodeValue(params.getPassword()));
+  ConfigOptions getConfigOptions() {
+    return configOptions;
   }
 
   private static DocId newDocId(Checkpoint checkpoint) {
@@ -215,8 +204,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
     private final String idFormat = "{AAAAAAAA-0000-0000-0000-%012d}";
     private final int maxFeedUrls;
 
-    MockTraverser(Params params) {
-      this.maxFeedUrls = params.getMaxFeedUrls();
+    MockTraverser(ConfigOptions configOptions) {
+      this.maxFeedUrls = configOptions.getMaxFeedUrls();
     }
 
     @Override
