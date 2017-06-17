@@ -17,6 +17,8 @@ package com.google.enterprise.adaptor.filenet;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.IOHelper.copyStream;
+import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.US;
 
@@ -26,7 +28,6 @@ import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
-import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
@@ -56,10 +57,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
   private final ObjectFactory factory;
 
   private AdaptorContext context;
-  private String contentEngineUrl;
-  private String username;
-  private String password;
-  private String objectStore;
+  private ConfigOptions configOptions;
+
   private Traverser documentTraverser;
 
   public static void main(String[] args) {
@@ -77,46 +76,34 @@ public class FileNetAdaptor extends AbstractAdaptor {
     config.addKey("filenet.username", null);
     config.addKey("filenet.password", null);
     config.addKey("filenet.objectStore", null);
+    config.addKey("filenet.objectFactory",
+        FileNetObjectFactory.class.getName());
+    config.addKey("filenet.displayUrl", null);
+    config.addKey("filenet.additionalWhereClause", "");
+    config.addKey("filenet.deleteAdditionalWhereClause", "");
+    config.addKey("filenet.excludedMetadata", "");
+    config.addKey("filenet.includedMetadata", "");
+    config.addKey("adaptor.namespace", DEFAULT_NAMESPACE);
   }
 
   @Override
   public void init(AdaptorContext context) throws Exception {
     this.context = context;
-    Config config = context.getConfig();
+    this.configOptions = new ConfigOptions(context);
 
-    int maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
-    if (maxFeedUrls < 2) {
-      throw new InvalidConfigurationException(
-          "feed.maxUrls must be greater than 2");
-    }
-
-    contentEngineUrl = config.getValue("filenet.contentEngineUrl");
-    logger.log(Level.CONFIG, "filenet.contentEngineUrl: {0}", contentEngineUrl);
-
-    objectStore = config.getValue("filenet.objectStore");
-    logger.log(Level.CONFIG, "filenet.objectStore: {0}", objectStore);
-
-    username = config.getValue("filenet.username");
-    password = config.getValue("filenet.password");
-
-    // Verify we can connect to the server and access the ObjectStore.
-    logger.log(Level.INFO, "Connecting to content engine {0}",
-        contentEngineUrl);
-    try (Connection connection = getConnection()) {
-      logger.log(Level.INFO, "Connecting to object store {0}", objectStore);
-      factory.getObjectStore(connection, objectStore);
+    try (Connection connection = configOptions.getConnection()) {
+      configOptions.getObjectStore(connection);
     } catch (EngineRuntimeException e) {
       throw new StartupException(
           "Failed to access content engine's object store", e);
     }
 
-    documentTraverser = new MockTraverser(maxFeedUrls);
+    documentTraverser = new MockTraverser(configOptions);
   }
 
   @VisibleForTesting
-  Connection getConnection() {
-    return factory.getConnection(contentEngineUrl, username,
-        context.getSensitiveValueDecoder().decodeValue(password));
+  ConfigOptions getConfigOptions() {
+    return configOptions;
   }
 
   private static DocId newDocId(Checkpoint checkpoint) {
@@ -191,8 +178,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
     private final String idFormat = "{AAAAAAAA-0000-0000-0000-%012d}";
     private final int maxFeedUrls;
 
-    MockTraverser(int maxFeedUrls) {
-      this.maxFeedUrls = maxFeedUrls;
+    MockTraverser(ConfigOptions configOptions) {
+      this.maxFeedUrls = configOptions.getMaxFeedUrls();
     }
 
     @Override

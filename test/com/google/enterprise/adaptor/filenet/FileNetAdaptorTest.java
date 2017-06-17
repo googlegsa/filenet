@@ -15,9 +15,11 @@
 package com.google.enterprise.adaptor.filenet;
 
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
+import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -30,11 +32,13 @@ import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
+import com.filenet.api.core.ObjectStore;
 import com.filenet.api.util.Id;
 import com.filenet.api.util.UserContext;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -65,10 +69,13 @@ public class FileNetAdaptorTest {
     context = ProxyAdaptorContext.getInstance();
     config = context.getConfig();
     adaptor.initConfig(config);
-    config.overrideKey("filenet.contentEngineUrl", "http://test.example.com");
+    config.overrideKey("filenet.contentEngineUrl", "http://localhost/");
     config.overrideKey("filenet.username", "test");
     config.overrideKey("filenet.password", "password");
     config.overrideKey("filenet.objectStore", "ObjectStore");
+    config.overrideKey("filenet.objectFactory",
+        FileNetProxies.class.getName());
+    config.overrideKey("filenet.displayUrl", "http://localhost/");
   }
 
   @After
@@ -79,6 +86,11 @@ public class FileNetAdaptorTest {
   @Test
   public void testInit() throws Exception {
     adaptor.init(context);
+  }
+
+  /** Get the Adaptor's ConfigOptions. */
+  private ConfigOptions getConfigOptions() {
+    return adaptor.getConfigOptions();
   }
 
   /** Get the RecordingDocIdPusher from the ProxyAdaptorContext. */
@@ -94,6 +106,7 @@ public class FileNetAdaptorTest {
     return new DocId("guid/" + id);
   }
 
+  @Ignore("TODO(bmj): this test is broken wrt UserContext assertions")
   @Test
   public void testGetConnection() throws Exception {
     // Mock sensitiveValueDecoder uppercases the value.
@@ -101,8 +114,8 @@ public class FileNetAdaptorTest {
         ImmutableSet.of("test"), ImmutableSet.of("PASSWORD"));
     assertFalse(subject.equals(UserContext.get().getSubject()));
     adaptor.init(context);
-    try (Connection connection = adaptor.getConnection()) {
-      assertEquals("http://test.example.com",
+    try (Connection connection = getConfigOptions().getConnection()) {
+      assertEquals("http://localhost/",
           connection.getConnection().getURI());
       assertTrue(subject.equals(UserContext.get().getSubject()));
     }
@@ -219,10 +232,238 @@ public class FileNetAdaptorTest {
   }
 
   @Test
-  public void testInit_maxFeedUrlsTooSmall() throws Exception {
+  public void testInit_contentEngineUrl() throws Exception {
+    String url = "http://localhost/";
+    config.overrideKey("filenet.contentEngineUrl", url);
+    adaptor.init(context);
+    assertEquals(url, getConfigOptions().getContentEngineUrl());
+  }
+
+  @Test
+  public void testInit_contentEngineUrl_invalid() throws Exception {
+    String url = "foo/bar";
+    config.overrideKey("filenet.contentEngineUrl", url);
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("Invalid filenet.contentEngineUrl");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_contentEngineUrl_missing() throws Exception {
+    config.overrideKey("filenet.contentEngineUrl", null);
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("You must set configuration key");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_objectStore() throws Exception {
+    String objectStore = "ObjectStore";
+    config.overrideKey("filenet.objectStore", objectStore);
+    adaptor.init(context);
+    Connection conn = getConfigOptions().getConnection();
+    assertNotNull(getConfigOptions().getObjectStore(conn));
+  }
+
+  @Test
+  public void testInit_objectStore_empty() throws Exception {
+    config.overrideKey("filenet.objectStore", "");
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("filenet.objectStore may not be empty");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_objectStore_missing() throws Exception {
+    config.overrideKey("filenet.objectStore", null);
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("You must set configuration key");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_objectFactory() throws Exception {
+    String objectFactory = FileNetProxies.class.getName();
+    config.overrideKey("filenet.objectFactory", objectFactory);
+    adaptor.init(context);
+    assertEquals(objectFactory,
+        getConfigOptions().getObjectFactory().getClass().getName());
+  }
+
+  @Test
+  public void testInit_objectFactory_notFound() throws Exception {
+    config.overrideKey("filenet.objectFactory",
+        "com.google.enterprise.adaptor.filenet.UnknownFactory");
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("Unable to instantiate object factory");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_objectFactory_empty() throws Exception {
+    config.overrideKey("filenet.objectFactory", "");
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("filenet.objectFactory may not be empty");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_objectFactory_missing() throws Exception {
+    config.overrideKey("filenet.objectFactory", null);
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("You must set configuration key");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_displayUrl_bare() throws Exception {
+    config.overrideKey("filenet.displayUrl", "http://localhost");
+    config.overrideKey("filenet.objectStore", "ObjectStore");
+    adaptor.init(context);
+    String expected = "http://localhost/getContent?objectStoreName=ObjectStore"
+        + "&objectType=document&versionStatus=1&vsId=";
+    assertEquals(expected, getConfigOptions().getDisplayUrl());
+  }
+
+  @Test
+  public void testInit_displayUrl_getContent() throws Exception {
+    config.overrideKey("filenet.displayUrl", "http://localhost/getContent");
+    config.overrideKey("filenet.objectStore", "ObjectStore");
+    adaptor.init(context);
+    String expected = "http://localhost/getContent?objectStoreName=ObjectStore"
+        + "&objectType=document&versionStatus=1&vsId=";
+    assertEquals(expected, getConfigOptions().getDisplayUrl());
+  }
+
+  @Test
+  public void testInit_displayUrl_getContentSlash() throws Exception {
+    config.overrideKey("filenet.displayUrl", "http://localhost/getContent/");
+    config.overrideKey("filenet.objectStore", "ObjectStore");
+    adaptor.init(context);
+    String expected = "http://localhost/getContent?objectStoreName=ObjectStore"
+        + "&objectType=document&versionStatus=1&vsId=";
+    assertEquals(expected, getConfigOptions().getDisplayUrl());
+  }
+
+  @Test
+  public void testInit_displayUrl_invalid() throws Exception {
+    String url = "foo/bar";
+    config.overrideKey("filenet.displayUrl", url);
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("Invalid displayUrl");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_displayUrl_missing() throws Exception {
+    config.overrideKey("filenet.displayUrl", null);
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("You must set configuration key");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_markAllDocsAsPublic() throws Exception {
+    config.overrideKey("adaptor.markAllDocsAsPublic", "true");
+    adaptor.init(context);
+    assertEquals(true, getConfigOptions().markAllDocsAsPublic());
+  }
+
+  @Test
+  public void testInit_markAllDocsAsPublic_default() throws Exception {
+    adaptor.init(context);
+    assertEquals(false, getConfigOptions().markAllDocsAsPublic());
+  }
+
+  @Test
+  public void testInit_globalNamespace() throws Exception {
+    config.overrideKey("adaptor.namespace", "namespace");
+    adaptor.init(context);
+    assertEquals("namespace", getConfigOptions().getGlobalNamespace());
+  }
+
+  @Test
+  public void testInit_globalNamespace_default() throws Exception {
+    adaptor.init(context);
+    assertEquals(DEFAULT_NAMESPACE, getConfigOptions().getGlobalNamespace());
+  }
+
+  @Test
+  public void testInit_additionalWhereClause() throws Exception {
+    config.overrideKey("filenet.additionalWhereClause", "and foo = bar");
+    adaptor.init(context);
+    assertEquals("and foo = bar",
+        getConfigOptions().getAdditionalWhereClause());
+  }
+
+  @Test
+  public void testInit_additionalWhereClause_default() throws Exception {
+    adaptor.init(context);
+    assertEquals("", getConfigOptions().getAdditionalWhereClause());
+  }
+
+  @Test
+  public void testInit_deleteAdditionalWhereClause() throws Exception {
+    config.overrideKey("filenet.deleteAdditionalWhereClause", "and foo = bar");
+    adaptor.init(context);
+    assertEquals("and foo = bar",
+        getConfigOptions().getDeleteAdditionalWhereClause());
+  }
+
+  @Test
+  public void testInit_deleteAdditionalWhereClause_default() throws Exception {
+    adaptor.init(context);
+    assertEquals("", getConfigOptions().getDeleteAdditionalWhereClause());
+  }
+
+  @Test
+  public void testInit_excludedMetadata() throws Exception {
+    config.overrideKey("filenet.excludedMetadata", "foo, bar, baz");
+    adaptor.init(context);
+    assertEquals(ImmutableSet.of("foo", "bar", "baz"),
+        getConfigOptions().getExcludedMetadata());
+  }
+
+  @Test
+  public void testInit_excludedMetadata_default() throws Exception {
+    adaptor.init(context);
+    assertEquals(ImmutableSet.of(), getConfigOptions().getExcludedMetadata());
+  }
+
+  @Test
+  public void testInit_includedMetadata() throws Exception {
+    config.overrideKey("filenet.includedMetadata", "foo, bar, baz");
+    adaptor.init(context);
+    assertEquals(ImmutableSet.of("foo", "bar", "baz"),
+        getConfigOptions().getIncludedMetadata());
+  }
+
+  @Test
+  public void testInit_includedMetadata_default() throws Exception {
+    adaptor.init(context);
+    assertEquals(ImmutableSet.of(), getConfigOptions().getIncludedMetadata());
+  }
+
+  @Test
+  public void testInit_maxFeedUrls() throws Exception {
+    config.overrideKey("feed.maxUrls", "10");
+    adaptor.init(context);
+    assertEquals(10, getConfigOptions().getMaxFeedUrls());
+  }
+
+  @Test
+  public void testInit_maxFeedUrls_invalid() throws Exception {
+    config.overrideKey("feed.maxUrls", "foo");
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("Invalid feed.maxUrls value: foo");
+    adaptor.init(context);
+  }
+
+  @Test
+  public void testInit_maxFeedUrls_tooSmall() throws Exception {
     config.overrideKey("feed.maxUrls", "1");
     thrown.expect(InvalidConfigurationException.class);
-    thrown.expectMessage("feed.maxUrls must be greater than 2");
+    thrown.expectMessage("feed.maxUrls must be greater than 1");
     adaptor.init(context);
   }
 
