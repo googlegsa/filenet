@@ -20,6 +20,7 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.replay;
 
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
+import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.constants.ClassNames;

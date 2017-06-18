@@ -14,12 +14,9 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-import static org.easymock.EasyMock.anyBoolean;
-import static org.easymock.EasyMock.capture;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.createNiceMock;
 import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.isA;
 import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
 import static org.junit.Assert.assertFalse;
@@ -29,10 +26,12 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
+import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.AccessRight;
+import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
@@ -41,8 +40,6 @@ import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.security.AccessPermission;
 
-import org.easymock.Capture;
-import org.easymock.IAnswer;
 import org.junit.After;
 import org.junit.Before;
 
@@ -129,33 +126,16 @@ public class TraverserFactoryFixture {
 
   protected DocumentTraverser getDocumentTraverser(
       FileConnector connector, MockObjectStore os,
-      final IndependentObjectSet objectSet, Capture<String> capture) {
+      IndependentObjectSet objectSet) {
     Connection connection = createNiceMock(Connection.class);
 
     // The search result is for added and update documents.
-    SearchWrapper searcher = createMock(SearchWrapper.class);
-    final Capture<Integer> batchHint = new Capture<>();
-    expect(searcher.fetchObjects(capture(capture), capture(batchHint),
-            isA(PropertyFilter.class), anyBoolean()))
-        .andAnswer(
-            new IAnswer<IndependentObjectSet>() {
-              @Override public IndependentObjectSet answer() {
-                // We can't get the size of objectSet easily, so we always
-                // copy the objects, limited by the captured batch hint.
-                Iterator<?> oldObjects = objectSet.iterator();
-                List<IndependentObject> newObjects = new ArrayList<>();
-                int limit = batchHint.getValue();
-                while (oldObjects.hasNext() && limit-- > 0) {
-                  newObjects.add((IndependentObject) oldObjects.next());
-                }
-                return new IndependentObjectSetMock(newObjects);
-              }
-            }
-          );
+    SearchWrapper searcher =
+        new SearchMock(ImmutableMap.of(ClassNames.DOCUMENT, objectSet));
 
     ObjectFactory objectFactory = createMock(ObjectFactory.class);
     expect(objectFactory.getSearch(os)).andReturn(searcher);
-    replayAndSave(connection, searcher, objectFactory);
+    replayAndSave(connection, objectFactory);
 
     return new DocumentTraverser(connection, objectFactory, os, connector);
   }
@@ -197,10 +177,6 @@ public class TraverserFactoryFixture {
     @Override
     public IndependentObjectSet fetchObjects(String query, Integer pageSize,
         PropertyFilter filter, Boolean continuable) {
-      return executeSql(query);
-    }
-
-    public IndependentObjectSet executeSql(String query) {
       // Rewrite queries for H2. Replace GUIDs with table names. Quote
       // timestamps. Rewrite Object(guid) as 'guid'.
       String h2Query = query
@@ -226,7 +202,16 @@ public class TraverserFactoryFixture {
         if (set == null && !results.isEmpty()) {
           fail("Unexpected query for " + tableName + ": " + query);
         }
-        return set;
+
+        // We can't get the size of objectSet easily, so we always
+        // copy the objects, limited by the page size.
+        Iterator<?> oldObjects = set.iterator();
+        List<IndependentObject> newObjects = new ArrayList<>();
+        int count = 0;
+        while (oldObjects.hasNext() && count++ < pageSize) {
+          newObjects.add((IndependentObject) oldObjects.next());
+        }
+        return new IndependentObjectSetMock(newObjects);
       } catch (SQLException e) {
         // TODO(jlacey): Test this with null arguments.
         throw new EngineRuntimeException(e, null, null);

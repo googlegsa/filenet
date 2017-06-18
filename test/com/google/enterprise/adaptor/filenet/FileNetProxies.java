@@ -17,11 +17,14 @@ package com.google.enterprise.adaptor.filenet;
 import com.google.common.collect.ImmutableSet;
 
 import com.filenet.api.collection.PropertyDefinitionList;
+import com.filenet.api.constants.ClassNames;
+import com.filenet.api.core.Document;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
 import java.security.Principal;
+import java.util.HashMap;
 import javax.security.auth.Subject;
 
 class FileNetProxies implements ObjectFactory {
@@ -32,22 +35,15 @@ class FileNetProxies implements ObjectFactory {
       throws EngineRuntimeException {
     return new Connection(
         Proxies.newProxyInstance(com.filenet.api.core.Connection.class,
-            new FileNetConnectionMock(contentEngineUri)),
+            new MockConnection(contentEngineUri)),
         new Subject(true, ImmutableSet.<Principal>of(),
             ImmutableSet.of(username), ImmutableSet.of(password)));
   }
 
-  @Override
-  public IObjectStore getObjectStore(Connection connection,
-      String objectStoreName) throws EngineRuntimeException {
-    return Proxies.newProxyInstance(IObjectStore.class,
-        new ObjectStoreMock(objectStoreName));
-  }
-
-  private class FileNetConnectionMock {
+  private static class MockConnection {
     private final String contentEngineUri;
 
-    public FileNetConnectionMock(String contentEngineUri) {
+    public MockConnection(String contentEngineUri) {
       this.contentEngineUri = contentEngineUri;
     }
 
@@ -56,15 +52,44 @@ class FileNetProxies implements ObjectFactory {
     }
   }
 
-  private class ObjectStoreMock {
-    private final String objectStoreName;
+  @Override
+  public IObjectStore getObjectStore(Connection connection,
+      String objectStoreName) throws EngineRuntimeException {
+    return new MockObjectStore();
+  }
 
-    public ObjectStoreMock(String objectStoreName) {
-      this.objectStoreName = objectStoreName;
+  static class MockObjectStore implements IObjectStore {
+    private final HashMap<Id, Document> objects = new HashMap<>();
+
+    /**
+     * Adds an object to the store.
+     */
+    public void addObject(Document object) {
+      objects.put(object.get_Id(), object);
     }
 
-    public String get_Name() {
-      return objectStoreName;
+    /** Verifies that the given object is in the store. */
+    public boolean containsObject(String type, Id id) {
+      if (ClassNames.DOCUMENT.equals(type)) {
+        return objects.containsKey(id);
+      } else {
+        throw new AssertionError("Unexpected type " + type);
+      }
+    }
+
+    @Override
+    public IBaseObject fetchObject(String type, Id id, PropertyFilter filter) {
+      if (ClassNames.DOCUMENT.equals(type)) {
+        Document obj = objects.get(id);
+        if (obj == null) {
+          throw new /*TODO*/ RuntimeException("Unable to fetch document "
+              + id);
+        } else {
+          return new MockDocument(obj);
+        }
+      } else {
+        throw new AssertionError("Unexpected type " + type);
+      }
     }
   }
 

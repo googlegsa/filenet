@@ -32,7 +32,7 @@ class TestObjectFactory {
     connector.setPassword("opensesame");
     connector.setObject_store("ObjStore");
     connector.setWorkplace_display_url("http://localhost/getContent");
-    connector.setObject_factory(MockObjectFactory.class.getName());
+    connector.setObject_factory(FileNetProxies.class.getName());
     connector.setContent_engine_url("http://localhost/wsi/FNCEWS40MTOM");
     connector.setGoogleGlobalNamespace("ns");
     connector.login();
