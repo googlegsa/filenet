@@ -31,6 +31,7 @@ import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
+import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
@@ -41,8 +42,6 @@ import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.core.IndependentObject;
 import com.filenet.api.util.Id;
 
-import org.easymock.Capture;
-import org.easymock.CaptureType;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -93,8 +92,7 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   private DocumentTraverser getObjectUnderTest(MockObjectStore os,
       IndependentObjectSet docSet) {
-    return getDocumentTraverser(connec, os, docSet,
-        new Capture<String>(CaptureType.NONE));
+    return getDocumentTraverser(connec, os, docSet);
   }
 
   @Test
@@ -153,33 +151,6 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
   }
 
   @Test
-  public void testGetDocumentList_initialCheckpoint() throws Exception {
-    connec.setDelete_additional_where_clause("and 1=1");
-
-    MockObjectStore objectStore = newObjectStore();
-    Capture<String> capture = new Capture<>(CaptureType.ALL);
-    DocumentTraverser traverser = getDocumentTraverser(connec, objectStore,
-        new EmptyObjectSet(), capture);
-    RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
-    assertEquals(pusher.getDocIds().toString(), 0, pusher.getDocIds().size());
-    assertTrue(capture.toString(), capture.hasCaptured());
-    List<String> queries = capture.getValues();
-    assertEquals(queries.toString(), 1, queries.size());
-
-    // Smoke test the executed queries.
-    SearchMock search = new SearchMock();
-    for (String query : queries) {
-      search.executeSql(query);
-    }
-
-    // The document query should be unconstrained.
-    assertFalse(queries.get(0),
-        queries.get(0).contains(" AND ((DateLastModified="));
-    verifyAll();
-  }
-
-  @Test
   public void testGetCheckpointClause() throws Exception {
     String expectedId = "{AAAAAAAA-0000-0000-0000-000000000000}";
     Date expectedDate = new Date();
@@ -203,20 +174,6 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
     { "AAAAAAAA-3000-0000-0000-000000000000", DOCUMENT_TIMESTAMP },
     { "AAAAAAAA-4000-0000-0000-000000000000", DOCUMENT_TIMESTAMP },
   };
-
-  @Test
-  public void testNullObjectSet_nullDocuments() throws Exception {
-    MockObjectStore os = newObjectStore();
-    DocumentTraverser traverser = getObjectUnderTest(os, null);
-    // We're expecting a NullPointerException, but that leaves
-    // unverified mocks, so an AssertionError is also thrown. So we
-    // get a MultipleFailureException, but the version of JUnit we
-    // compile against doesn't know about that (I think we're getting
-    // a newew version of JUnit from Cobertura at runtime, but haven't
-    // verified that).
-    thrown.expect(Exception.class);
-    traverser.getDocIds(CHECKPOINT, new RecordingDocIdPusher());
-  }
 
   @Test
   public void testGetDocIds_noResults() throws Exception {
@@ -255,6 +212,8 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
     verifyAll();
   }
 
+  // TODO(jlacey): Once SearchMock uses H2 to get the objects, add a
+  // test that with a checkpoint that skips some data.
   @Test
   public void testGetDocIds_checkpoint() throws Exception {
     MockObjectStore os = newObjectStore();
