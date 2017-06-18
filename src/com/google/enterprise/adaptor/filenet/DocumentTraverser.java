@@ -23,6 +23,7 @@ import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
 import com.google.enterprise.adaptor.GroupPrincipal;
 import com.google.enterprise.adaptor.IOHelper;
+import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.UserPrincipal;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
@@ -53,7 +54,7 @@ import java.util.logging.Logger;
  * deleting index of documents to GSA. 2. Execution of the SQL query constructed
  * in step 1. 3. Retrieve the results of step 2 and wrap it in DocumentList
  */
-class DocumentTraverser {
+class DocumentTraverser implements FileNetAdaptor.Traverser {
   private static final Logger logger =
       Logger.getLogger(DocumentTraverser.class.getName());
 
@@ -80,13 +81,11 @@ class DocumentTraverser {
     this.batchHint = batchHint;
   }
 
-  // TODO: void getDocIds(Checkpoint, DocIdPusher)
-  public void getDocIds(String checkpointStr, DocIdPusher pusher)
+  @Override
+  public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
       throws IOException, InterruptedException {
     try {
-      Checkpoint checkpoint = new Checkpoint(checkpointStr);
-
-      // connection.refreshSUserContext();
+      // TODO(jlacey): get a connection
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
       SearchWrapper search = objectFactory.getSearch(objectStore);
@@ -109,7 +108,7 @@ class DocumentTraverser {
         Containable object = (Containable) objects.next();
         timestamp = object.get_DateLastModified();
         guid = object.get_Id(); // TODO: Use the VersionSeries ID.
-        docIds.add(new DocId("guid/" + guid));
+        docIds.add(newDocId(guid));
       }
       if (timestamp != null) {
         docIds.add(newDocId(new Checkpoint(checkpoint.type, timestamp, guid)));
@@ -185,13 +184,13 @@ class DocumentTraverser {
     return MessageFormat.format(whereClause, new Object[] { c, uuid });
   }
 
-  // TODO: void getDocContent(Id, Request, Response)
-  public void getDocContent(String idStr, Response response)
+  @Override
+  public void getDocContent(Id id, Request request, Response response)
       throws IOException {
-    Id id = new Id(idStr);
     try {
+      // TODO(jlacey): get a connection
       logger.log(Level.FINEST, "Add document [ID: {0}]", id);
-      processDocument(id, new DocId("guid/" + id), response);
+      processDocument(id, newDocId(id), response); // or request.getDocId()?
     } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
@@ -296,7 +295,7 @@ class DocumentTraverser {
   // TODO(jlacey): Should we always include the full ACL chain, and the
   // security template in particular, so that SecurityPolicyTraverser can
   // update just the one ACL and not have to rewire the chain?
-  public void processInheritedPermissions(DocId docId,
+  private void processInheritedPermissions(DocId docId,
       Permissions.Acl permissions, Response response) {
     // Send add request for adding ACLs inherited from parent folders.
     String secParentFragment = null;
