@@ -17,7 +17,7 @@ package com.google.enterprise.adaptor.filenet;
 import com.filenet.api.core.Document;
 import com.filenet.api.util.Id;
 
-public class MockVersionSeries implements IVersionSeries {
+class MockVersionSeries implements IVersionSeries {
   private final Document object;
 
   public MockVersionSeries(Document object) {

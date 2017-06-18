@@ -18,7 +18,7 @@ import com.filenet.api.core.Document;
 import com.filenet.api.core.VersionSeries;
 import com.filenet.api.util.Id;
 
-public class FnVersionSeries implements IVersionSeries {
+class FnVersionSeries implements IVersionSeries {
   private final VersionSeries versionSeries;
 
   public FnVersionSeries(VersionSeries versionSeries) {

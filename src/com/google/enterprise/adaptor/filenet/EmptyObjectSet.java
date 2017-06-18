@@ -21,7 +21,7 @@ import com.filenet.api.collection.PageIterator;
 
 import java.util.Iterator;
 
-public class EmptyObjectSet implements IndependentObjectSet {
+class EmptyObjectSet implements IndependentObjectSet {
   @Override
   public boolean isEmpty() {
     return true;

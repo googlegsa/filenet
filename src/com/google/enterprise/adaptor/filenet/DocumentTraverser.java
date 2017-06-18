@@ -26,11 +26,6 @@ import com.google.enterprise.adaptor.IOHelper;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.UserPrincipal;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
-import com.google.enterprise.adaptor.filenet.Connection;
-import com.google.enterprise.adaptor.filenet.IDocument;
-import com.google.enterprise.adaptor.filenet.ObjectFactory;
-import com.google.enterprise.adaptor.filenet.IObjectStore;
-import com.google.enterprise.adaptor.filenet.SearchWrapper;
 
 import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.ClassNames;

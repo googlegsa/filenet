@@ -25,7 +25,7 @@ import com.filenet.api.util.Id;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class FnObjectStore implements IObjectStore {
+class FnObjectStore implements IObjectStore {
   private static final Logger logger =
       Logger.getLogger(FnObjectStore.class.getName());
 

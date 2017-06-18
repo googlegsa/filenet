@@ -32,7 +32,6 @@ import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
-import com.filenet.api.core.ObjectStore;
 import com.filenet.api.util.Id;
 import com.filenet.api.util.UserContext;
 
@@ -257,8 +256,7 @@ public class FileNetAdaptorTest {
 
   @Test
   public void testInit_objectStore() throws Exception {
-    String objectStore = "ObjectStore";
-    config.overrideKey("filenet.objectStore", objectStore);
+    config.overrideKey("filenet.objectStore", "ObjectStore");
     adaptor.init(context);
     Connection conn = getConfigOptions().getConnection();
     assertNotNull(getConfigOptions().getObjectStore(conn));

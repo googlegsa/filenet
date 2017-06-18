@@ -23,11 +23,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Interface between the Client Document and Core document.
- */
-public interface IDocument extends IBaseObject {
-
+interface IDocument extends IBaseObject {
   Date get_DateLastModified();
 
   AccessPermissionList get_Permissions();

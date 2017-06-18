@@ -36,7 +36,7 @@ public class SearchWrapper {
   public static final PropertyFilter dereferenceObjects = new PropertyFilter();
 
   /** Do not filter the results or deference object properties. */
-  public static final PropertyFilter noFilter = null;
+  public static final PropertyFilter NO_FILTER = null;
 
   /** Return all results. */
   public static final Boolean ALL_ROWS = Boolean.TRUE;

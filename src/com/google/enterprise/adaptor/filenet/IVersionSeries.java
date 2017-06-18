@@ -14,7 +14,6 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-public interface IVersionSeries extends IBaseObject {
-
-  public IDocument get_ReleasedVersion();
+interface IVersionSeries extends IBaseObject {
+  IDocument get_ReleasedVersion();
 }

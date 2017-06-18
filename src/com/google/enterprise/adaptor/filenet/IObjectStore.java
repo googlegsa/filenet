@@ -17,7 +17,6 @@ package com.google.enterprise.adaptor.filenet;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
-public interface IObjectStore {
-  public IBaseObject fetchObject(String type, Id id,
-      PropertyFilter filter);
+interface IObjectStore {
+  IBaseObject fetchObject(String type, Id id, PropertyFilter filter);
 }
