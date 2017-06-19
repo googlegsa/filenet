@@ -28,16 +28,20 @@ import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.UserPrincipal;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 
+import com.filenet.api.collection.ActiveMarkingList;
 import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
-import com.filenet.api.core.Containable;
+import com.filenet.api.core.Document;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.exception.ExceptionCode;
 import com.filenet.api.util.Id;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
@@ -89,8 +93,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       Id guid = null; // TODO: Id.ZERO_ID?
       Iterator<?> objects = objectSet.iterator();
       while (objects.hasNext()) {
-        // Avoid clash with SPI Document class.
-        Containable object = (Containable) objects.next();
+        Document object = (Document) objects.next();
         timestamp = object.get_DateLastModified();
         guid = object.get_Id(); // TODO: Use the VersionSeries ID.
         docIds.add(newDocId(guid));
@@ -195,11 +198,24 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     logger.log(Level.FINE, "Fetch document for DocId {0}", guid);
     String vsDocId = document.getVersionSeries().get_Id().toString();
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
-    if (!document.get_ActiveMarkings().isEmpty()) {
-      throw new UnsupportedOperationException(
-          "Document " + vsDocId + " has an active marking set.");
+
+    try {
+      ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
+      if (!activeMarkings.isEmpty()) {
+        throw new UnsupportedOperationException(
+            "Document " + vsDocId + " has an active marking set.");
+      }
+    } catch (EngineRuntimeException e) {
+      // TODO(jlacey): The IBM doc suggests this is just a property
+      // filter issue, and we might get a different error if or none
+      // at all if there are no active markings.
+      if (e.getExceptionCode() == ExceptionCode.API_PROPERTY_NOT_IN_CACHE) {
+        logger.log(Level.FINER, "Assuming no active markings: {0}",
+            e.getMessage());
+      } else {
+        throw e;
+      }
     }
-    logger.log(Level.FINEST, "Process permissions for document: {0}", guid);
     Permissions.Acl permissions =
         new Permissions(document.get_Permissions(), document.get_Owner())
         .getAcl();
@@ -219,7 +235,24 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
     logger.log(Level.FINEST, "Getting content");
     if (hasAllowableSize(guid, document)) {
-      IOHelper.copyStream(document.getContent(), response.getOutputStream());
+      try (InputStream in = document.accessContentStream(0)) {
+        OutputStream out = response.getOutputStream();
+        IOHelper.copyStream(in, out);
+      } catch (EngineRuntimeException e) {
+        if (e.getExceptionCode() == ExceptionCode.API_INDEX_OUT_OF_BOUNDS) {
+          logger.log(Level.FINER, "Document has no content: {0}", guid);
+          response.getOutputStream();
+        } else if (e.getExceptionCode()
+            == ExceptionCode.API_NOT_A_CONTENT_TRANSFER) {
+          logger.log(Level.FINER,
+              "Document content element is unsupported: {1}", guid);
+          response.getOutputStream();
+        } else {
+            logger.log(Level.WARNING,
+                "Unable to get document content: {1}", guid);
+            response.respondNoContent();
+        }
+      }
     }
   }
 
@@ -347,35 +380,36 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   }
 
   private void setMetadata(IDocument document, Response response) {
-    for (String name : getPropertyNames(document)) {
+    IDocumentProperties properties = document.getDocumentProperties();
+    for (String name : getPropertyNames(properties)) {
       ArrayList<String> list = new ArrayList<>();
-      document.getProperty(name, list);
+      properties.getProperty(name, list);
       for (String value : list) {
         response.addMetadata(name, value);
       }
     }
   }
 
-  private Set<String> getPropertyNames(IDocument document)  {
-    Set<String> properties = new HashSet<String>();
-    for (String property : document.getPropertyNames()) {
+  private Set<String> getPropertyNames(IDocumentProperties properties)  {
+    Set<String> names = new HashSet<String>();
+    for (String property : properties.getPropertyNames()) {
       if (property != null) {
         if (options.getIncludedMetadata().size() != 0) {
           // includeMeta - excludeMeta
           if ((!options.getExcludedMetadata().contains(property)
               && options.getIncludedMetadata().contains(property))) {
-            properties.add(property);
+            names.add(property);
           }
         } else {
           // superSet - excludeMeta
           if ((!options.getExcludedMetadata().contains(property))) {
-            properties.add(property);
+            names.add(property);
           }
         }
       }
     }
     logger.log(Level.FINEST, "Property names: {0}", properties);
-    return properties;
+    return names;
   }
 
   private boolean hasAllowableSize(Id guid, IDocument document) {

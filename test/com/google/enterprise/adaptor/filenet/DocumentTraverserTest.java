@@ -17,6 +17,7 @@ package com.google.enterprise.adaptor.filenet;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint.getQueryTimeString;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -311,10 +312,10 @@ public class DocumentTraverserTest {
     RecordingResponse response = new RecordingResponse();
     traverser.getDocContent(docList.get(0), null, response);
 
-    int contentSize =
-        ((ByteArrayOutputStream) response.getOutputStream()).size();
-    assertEquals("Content size: " + contentSize,
-        expectNotNull, contentSize > 0);
+    String expectedContent = (expectNotNull) ? "sample content" : "";
+    byte[] actualContent =
+        ((ByteArrayOutputStream) response.getOutputStream()).toByteArray();
+    assertEquals(expectedContent, new String(actualContent, UTF_8));
   }
 
   @Test

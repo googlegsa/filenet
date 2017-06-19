@@ -21,8 +21,6 @@ import com.filenet.api.core.VersionSeries;
 
 import java.io.InputStream;
 import java.util.Date;
-import java.util.List;
-import java.util.Set;
 
 interface IDocument extends IBaseObject {
   Date get_DateLastModified();
@@ -31,7 +29,7 @@ interface IDocument extends IBaseObject {
 
   String get_Owner();
 
-  InputStream getContent();
+  InputStream accessContentStream(int index);
 
   Double get_ContentSize();
 
@@ -43,11 +41,5 @@ interface IDocument extends IBaseObject {
 
   Folder get_SecurityFolder();
 
-  Set<String> getPropertyNames();
-
-  void getProperty(String name, List<String> list);
-
-  void getPropertyStringValue(String name, List<String> list);
-
-  void getPropertyDateValue(String name, List<String> list);
+  IDocumentProperties getDocumentProperties();
 }
