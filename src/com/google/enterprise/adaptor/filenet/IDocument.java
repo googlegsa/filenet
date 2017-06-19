@@ -17,6 +17,7 @@ package com.google.enterprise.adaptor.filenet;
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.ActiveMarkingList;
 import com.filenet.api.core.Folder;
+import com.filenet.api.core.VersionSeries;
 
 import java.io.InputStream;
 import java.util.Date;
@@ -36,7 +37,7 @@ interface IDocument extends IBaseObject {
 
   String get_MimeType();
 
-  IVersionSeries getVersionSeries();
+  VersionSeries getVersionSeries();
 
   ActiveMarkingList get_ActiveMarkings();
 

@@ -19,6 +19,7 @@ import com.filenet.api.collection.ActiveMarkingList;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.Folder;
+import com.filenet.api.core.VersionSeries;
 import com.filenet.api.util.Id;
 
 import java.io.ByteArrayInputStream;
@@ -84,8 +85,23 @@ class MockDocument implements IDocument {
   }
 
   @Override
-  public IVersionSeries getVersionSeries() {
-    return new MockVersionSeries(this.doc);
+  public VersionSeries getVersionSeries() {
+    // TODO(jlacey): v3 used the same Id for the version series, but
+    // we need to change that for better testing.
+    return Proxies.newProxyInstance(VersionSeries.class,
+        new MockVersionSeries(doc.get_Id()));
+  }
+
+  private static class MockVersionSeries {
+    private final Id guid;
+
+    private MockVersionSeries(Id guid) {
+      this.guid = guid;
+    }
+
+    public Id get_Id() {
+      return guid;
+    }
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})

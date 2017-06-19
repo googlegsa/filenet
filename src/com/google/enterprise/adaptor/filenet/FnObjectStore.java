@@ -18,7 +18,6 @@ import com.filenet.api.constants.ClassNames;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.IndependentObject;
 import com.filenet.api.core.ObjectStore;
-import com.filenet.api.core.VersionSeries;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
@@ -40,9 +39,16 @@ class FnObjectStore implements IObjectStore {
     IndependentObject obj = null;
     try {
       obj = objectStore.fetchObject(type, id, filter);
-      if (type.equals(ClassNames.VERSION_SERIES)) {
-        return new FnVersionSeries((VersionSeries) obj);
-      } else if (type.equals(ClassNames.DOCUMENT)) {
+      // TODO(jlacey): Handling DeletionEvents fetches VersionSeries
+      // objects, so we may need this later, but it's blocking the
+      // removal of IVersionSeries. The planned for removal of
+      // IDocument would allow us to put this code back (and return
+      // IndependentObject).
+      //
+      // if (type.equals(ClassNames.VERSION_SERIES)) {
+      //   return new FnVersionSeries((VersionSeries) obj);
+      // }
+      if (type.equals(ClassNames.DOCUMENT)) {
         return new FnDocument((Document) obj);
       } else {
         // TODO(jlacey): This exception may not be caught if we
