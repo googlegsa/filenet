@@ -85,7 +85,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
     this.context = context;
     this.configOptions = new ConfigOptions(context);
 
-    try (Connection connection = configOptions.getConnection()) {
+    try (AutoConnection connection = configOptions.getConnection()) {
       configOptions.getObjectStore(connection);
     } catch (EngineRuntimeException e) {
       throw new StartupException(
