@@ -27,6 +27,7 @@ import com.filenet.api.collection.StringList;
 import com.filenet.api.core.ContentTransfer;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.Folder;
+import com.filenet.api.core.VersionSeries;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
 import com.filenet.api.property.Properties;
@@ -130,8 +131,8 @@ public class FnDocument implements IDocument {
   }
 
   @Override
-  public IVersionSeries getVersionSeries() {
-    return new FnVersionSeries(doc.get_VersionSeries());
+  public VersionSeries getVersionSeries() {
+    return doc.get_VersionSeries();
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})
