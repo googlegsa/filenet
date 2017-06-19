@@ -20,6 +20,7 @@ import com.google.enterprise.adaptor.SensitiveValueDecoder;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
 
 import com.filenet.api.collection.AccessPermissionList;
+import com.filenet.api.constants.AccessRight;
 import com.filenet.api.constants.AccessType;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.SecurityPrincipalType;
@@ -58,6 +59,17 @@ class TestObjectFactory {
       config.overrideKey(entry.getKey(), entry.getValue());
     }
     return new ConfigOptions(config, SENSITIVE_VALUE_DECODER);
+  }
+
+  public static AccessPermissionList getPermissions(
+      PermissionSource... sources) {
+    List<AccessPermission> aces = new ArrayList<>();
+    for (PermissionSource source : sources) {
+      aces.addAll(generatePermissions(
+        1, 1, 1, 1, (AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT),
+        0, source));
+    }
+    return newPermissionList(aces);
   }
 
   // TODO(tdnguyen): Combine this method with similar methods in

@@ -46,11 +46,11 @@ public class JdbcFixture {
     }
   }
 
-  protected void tearDown() throws SQLException {
+  public static void dropAllObjects() throws SQLException {
     executeUpdate("drop all objects");
   }
 
-  public void executeUpdate(String... sqls) throws SQLException {
+  public static void executeUpdate(String... sqls) throws SQLException {
     try (Connection connection = getConnection();
          Statement stmt = connection.createStatement()) {
       for (String sql : sqls) {
