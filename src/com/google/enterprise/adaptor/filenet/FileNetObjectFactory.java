@@ -32,18 +32,18 @@ import javax.security.auth.Subject;
 class FileNetObjectFactory implements ObjectFactory {
 
   @Override
-  public Connection getConnection(String contentEngineUri,
+  public AutoConnection getConnection(String contentEngineUri,
       String username, String password)
       throws EngineRuntimeException {
     com.filenet.api.core.Connection connection =
         Factory.Connection.getConnection(contentEngineUri);
     Subject subject =
         UserContext.createSubject(connection, username, password, "FileNetP8");
-    return new Connection(connection, subject);
+    return new AutoConnection(connection, subject);
   }
 
   @Override
-  public IObjectStore getObjectStore(Connection connection,
+  public IObjectStore getObjectStore(AutoConnection connection,
       String objectStoreName) throws EngineRuntimeException {
     Domain domain = Factory.Domain.fetchInstance(
         connection.getConnection(), null, null);

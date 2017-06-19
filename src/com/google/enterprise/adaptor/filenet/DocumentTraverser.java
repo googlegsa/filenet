@@ -67,7 +67,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   @Override
   public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
       throws IOException, InterruptedException {
-    try (Connection connection = options.getConnection()) {
+    try (AutoConnection connection = options.getConnection()) {
       IObjectStore objectStore = options.getObjectStore(connection);
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
@@ -174,7 +174,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   @Override
   public void getDocContent(Id guid, Request request, Response response)
       throws IOException {
-    try (Connection connection = options.getConnection()) {
+    try (AutoConnection connection = options.getConnection()) {
       IObjectStore objectStore = options.getObjectStore(connection);
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 

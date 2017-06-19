@@ -14,6 +14,7 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import com.filenet.api.core.Connection;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.util.UserContext;
 
@@ -23,11 +24,11 @@ import javax.security.auth.Subject;
  * Wraps a FileNet Connection while maintaining the FileNet UserContext.
  * Note that pushSubject() and popSubject() must be balanced within a thread.
  */
-class Connection implements AutoCloseable {
+class AutoConnection implements AutoCloseable {
 
-  private final com.filenet.api.core.Connection connection;
+  private final Connection connection;
 
-  Connection(com.filenet.api.core.Connection connection, Subject subject)
+  AutoConnection(Connection connection, Subject subject)
       throws EngineRuntimeException {
     this.connection = connection;
     UserContext.get().pushSubject(subject);
@@ -39,7 +40,7 @@ class Connection implements AutoCloseable {
   }
 
   /** Returns the underlying FileNet Connection. */
-  com.filenet.api.core.Connection getConnection() {
+  Connection getConnection() {
     return connection;
   }
 }

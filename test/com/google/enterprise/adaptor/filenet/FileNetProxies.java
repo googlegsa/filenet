@@ -36,10 +36,10 @@ import javax.security.auth.Subject;
 class FileNetProxies implements ObjectFactory {
 
   @Override
-  public Connection getConnection(String contentEngineUri,
+  public AutoConnection getConnection(String contentEngineUri,
       String username, String password)
       throws EngineRuntimeException {
-    return new Connection(
+    return new AutoConnection(
         Proxies.newProxyInstance(com.filenet.api.core.Connection.class,
             new MockConnection(contentEngineUri)),
         new Subject(true, ImmutableSet.<Principal>of(),
@@ -61,7 +61,7 @@ class FileNetProxies implements ObjectFactory {
   private final MockObjectStore objectStore = new MockObjectStore();
 
   @Override
-  public IObjectStore getObjectStore(Connection connection,
+  public IObjectStore getObjectStore(AutoConnection connection,
       String objectStoreName) throws EngineRuntimeException {
     return objectStore;
   }

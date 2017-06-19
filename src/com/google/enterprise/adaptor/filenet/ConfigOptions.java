@@ -171,12 +171,12 @@ class ConfigOptions {
     return objectFactory;
   }
 
-  public Connection getConnection() {
+  public AutoConnection getConnection() {
     return objectFactory.getConnection(contentEngineUrl, username,
         sensitiveValueDecoder.decodeValue(password));
   }
 
-  public IObjectStore getObjectStore(Connection connection) {
+  public IObjectStore getObjectStore(AutoConnection connection) {
     return objectFactory.getObjectStore(connection, objectStoreName);
   }
 

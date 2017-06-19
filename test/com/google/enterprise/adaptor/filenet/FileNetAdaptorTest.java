@@ -112,7 +112,7 @@ public class FileNetAdaptorTest {
         ImmutableSet.of("test"), ImmutableSet.of("PASSWORD"));
     assertFalse(subject.equals(UserContext.get().getSubject()));
     adaptor.init(context);
-    try (Connection connection = getConfigOptions().getConnection()) {
+    try (AutoConnection connection = getConfigOptions().getConnection()) {
       assertEquals("http://localhost/",
           connection.getConnection().getURI());
       assertTrue(subject.equals(UserContext.get().getSubject()));
@@ -258,7 +258,7 @@ public class FileNetAdaptorTest {
   public void testInit_objectStore() throws Exception {
     config.overrideKey("filenet.objectStore", "ObjectStore");
     adaptor.init(context);
-    Connection conn = getConfigOptions().getConnection();
+    AutoConnection conn = getConfigOptions().getConnection();
     assertNotNull(getConfigOptions().getObjectStore(conn));
   }
 
