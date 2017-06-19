@@ -14,8 +14,13 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
+import com.google.enterprise.adaptor.filenet.TraverserFactoryFixture.SearchMock;
+
+import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.collection.PropertyDefinitionList;
 import com.filenet.api.constants.ClassNames;
 import com.filenet.api.core.Document;
@@ -24,7 +29,8 @@ import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
 import java.security.Principal;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import javax.security.auth.Subject;
 
 class FileNetProxies implements ObjectFactory {
@@ -52,14 +58,18 @@ class FileNetProxies implements ObjectFactory {
     }
   }
 
+  private final MockObjectStore objectStore = new MockObjectStore();
+
   @Override
   public IObjectStore getObjectStore(Connection connection,
       String objectStoreName) throws EngineRuntimeException {
-    return new MockObjectStore();
+    return objectStore;
   }
 
   static class MockObjectStore implements IObjectStore {
-    private final HashMap<Id, Document> objects = new HashMap<>();
+    private final LinkedHashMap<Id, Document> objects = new LinkedHashMap<>();
+
+    private MockObjectStore() { }
 
     /**
      * Adds an object to the store.
@@ -75,6 +85,11 @@ class FileNetProxies implements ObjectFactory {
       } else {
         throw new AssertionError("Unexpected type " + type);
       }
+    }
+
+    /** Retrieves all the objects in the store. */
+    public Collection<Document> getObjects() {
+      return objects.values();
     }
 
     @Override
@@ -101,6 +116,10 @@ class FileNetProxies implements ObjectFactory {
 
   @Override
   public SearchWrapper getSearch(IObjectStore objectStore) {
-    throw new UnsupportedOperationException();
+    IndependentObjectSet objectSet =
+        new IndependentObjectSetMock(
+            ((MockObjectStore) objectStore).getObjects());
+    return new SearchMock(ImmutableMap.of(ClassNames.DOCUMENT, objectSet));
+
   }
 }

@@ -14,24 +14,15 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-import static org.easymock.EasyMock.createMock;
-import static org.easymock.EasyMock.createNiceMock;
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
-import static org.easymock.EasyMock.verify;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
-import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.AccessRight;
-import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
@@ -47,7 +38,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -56,32 +46,6 @@ import java.util.List;
  * call newInstance on the subclasses.
  */
 public class TraverserFactoryFixture {
-  private final List<Object> mocksToVerify = new ArrayList<>();
-
-  protected void replayAndSave(Object... mocks) {
-    replay(mocks);
-    Collections.addAll(mocksToVerify, mocks);
-  }
-
-  /**
-   * Verify all saved mocks. It is an error if there are no saved
-   * mocks to verify (this method should just not be called), and also
-   * an error if there are saved mocks but this method is not called.
-   */
-  protected void verifyAll() {
-    assertFalse("No mocks to verify!", mocksToVerify.isEmpty());
-    for (Object mock : mocksToVerify) {
-      verify(mock);
-    }
-    mocksToVerify.clear();
-  }
-
-  /** Ensures that all saved mocks have been verified. */
-  @After
-  public void quisCustodietIpsosCustodes() {
-    assertTrue("Unverified mocks: " + mocksToVerify, mocksToVerify.isEmpty());
-  }
-
   private static final String CREATE_TABLE_DELETION_EVENT =
       "create table DeletionEvent("
       + PropertyNames.ID + " varchar, "
@@ -124,22 +88,6 @@ public class TraverserFactoryFixture {
     jdbcFixture.tearDown();
   }
 
-  protected DocumentTraverser getDocumentTraverser(
-      FileConnector connector, MockObjectStore os,
-      IndependentObjectSet objectSet) {
-    Connection connection = createNiceMock(Connection.class);
-
-    // The search result is for added and update documents.
-    SearchWrapper searcher =
-        new SearchMock(ImmutableMap.of(ClassNames.DOCUMENT, objectSet));
-
-    ObjectFactory objectFactory = createMock(ObjectFactory.class);
-    expect(objectFactory.getSearch(os)).andReturn(searcher);
-    replayAndSave(connection, objectFactory);
-
-    return new DocumentTraverser(connection, objectFactory, os, connector);
-  }
-
   protected AccessPermissionList getPermissions(PermissionSource... sources) {
     List<AccessPermission> aces = new ArrayList<>();
     for (PermissionSource source : sources) {
@@ -156,11 +104,6 @@ public class TraverserFactoryFixture {
   protected static class SearchMock extends SearchWrapper {
     /** A map with case-insensitive keys for natural table name matching. */
     private final ImmutableSortedMap<String, IndependentObjectSet> results;
-
-    /** Used by DocumentTraverser to just smoke test the queries. */
-    protected SearchMock() {
-      this.results = ImmutableSortedMap.of();
-    }
 
     /**
      * Constructs a mock to return the given results for each table.

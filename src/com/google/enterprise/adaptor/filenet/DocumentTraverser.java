@@ -58,43 +58,28 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   private static final Logger logger =
       Logger.getLogger(DocumentTraverser.class.getName());
 
-  private final Connection connection;
-  private final ObjectFactory objectFactory;
-  private final IObjectStore objectStore;
-  private final FileConnector connector;
+  private final ConfigOptions options;
 
-  private int batchHint = 1000;
-
-  public DocumentTraverser(Connection connection,
-      ObjectFactory objectFactory, IObjectStore objectStore,
-      FileConnector fileConnector) {
-    this.connection = connection;
-    this.objectFactory = objectFactory;
-    this.objectStore = objectStore;
-    this.connector = fileConnector;
-  }
-
-  /**
-   * To set BatchHint for traversal.
-   */
-  public void setBatchHint(int batchHint) {
-    this.batchHint = batchHint;
+  public DocumentTraverser(ConfigOptions options) {
+    this.options = options;
   }
 
   @Override
   public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
       throws IOException, InterruptedException {
-    try {
-      // TODO(jlacey): get a connection
+    try (Connection connection = options.getConnection()) {
+      IObjectStore objectStore = options.getObjectStore(connection);
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
+      ObjectFactory objectFactory = options.getObjectFactory();
       SearchWrapper search = objectFactory.getSearch(objectStore);
 
       String query = buildQueryString(checkpoint);
       logger.log(Level.FINE, "Query for added or updated documents: {0}",
           query);
-      IndependentObjectSet objectSet = search.fetchObjects(query, batchHint,
-          SearchWrapper.dereferenceObjects, SearchWrapper.ALL_ROWS);
+      IndependentObjectSet objectSet = search.fetchObjects(query,
+          options.getMaxFeedUrls() - 1, SearchWrapper.dereferenceObjects,
+          SearchWrapper.ALL_ROWS);
       logger.fine(objectSet.isEmpty()
           ? "Found no documents to add or update"
           : "Found documents to add or update");
@@ -127,7 +112,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
    */
   private String buildQueryString(Checkpoint checkpoint) {
     StringBuilder query = new StringBuilder("SELECT TOP ");
-    query.append(batchHint);
+    query.append(options.getMaxFeedUrls() - 1);
     query.append(" ");
     query.append(PropertyNames.ID);
     query.append(",");
@@ -138,11 +123,12 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     query.append(GuidConstants.Class_Document);
     query.append(" WHERE VersionStatus=1 and ContentSize IS NOT NULL ");
 
-    String additionalWhereClause = connector.getAdditionalWhereClause();
+    String additionalWhereClause = options.getAdditionalWhereClause();
     if (additionalWhereClause != null && !additionalWhereClause.equals("")) {
       if ((additionalWhereClause.toUpperCase()).startsWith("SELECT ID,DATELASTMODIFIED FROM ")) {
         query = new StringBuilder(additionalWhereClause);
-        query.replace(0, 6, "SELECT TOP " + batchHint + " ");
+        query.replace(0, 6,
+            "SELECT TOP " + (options.getMaxFeedUrls() - 1) + " ");
         logger.log(Level.FINE, "Using Custom Query[{0}]",
             additionalWhereClause);
       } else {
@@ -172,6 +158,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   String getCheckpointClause(Checkpoint checkPoint) {
     String c = checkPoint.timestamp;
     String uuid = checkPoint.guid;
+    // TODO(jlacey): This can't happen. Make sure of that and remove this.
     if (uuid.equals("")) {
       uuid = Id.ZERO_ID.toString();
     }
@@ -185,60 +172,60 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   }
 
   @Override
-  public void getDocContent(Id id, Request request, Response response)
+  public void getDocContent(Id guid, Request request, Response response)
       throws IOException {
-    try {
-      // TODO(jlacey): get a connection
-      logger.log(Level.FINEST, "Add document [ID: {0}]", id);
-      processDocument(id, newDocId(id), response); // or request.getDocId()?
+    try (Connection connection = options.getConnection()) {
+      IObjectStore objectStore = options.getObjectStore(connection);
+      logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
+
+      IDocument document = (IDocument)
+          objectStore.fetchObject(ClassNames.DOCUMENT, guid,
+              FileUtil.getDocumentPropertyFilter(
+                  options.getIncludedMetadata()));
+
+      logger.log(Level.FINEST, "Add document [ID: {0}]", guid);
+      processDocument(guid, newDocId(guid), document, response);
     } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
   }
 
-  private void processDocument(Id guid, DocId docId, Response response)
-        throws IOException {
-      boolean pushAcls = connector.pushAcls();
-      IDocument document =
-          (IDocument) objectStore.fetchObject(ClassNames.DOCUMENT, guid,
-          FileUtil.getDocumentPropertyFilter(connector.getIncludedMeta()));
-      logger.log(Level.FINE, "Fetch document for DocId {0}", guid);
-      String vsDocId = document.getVersionSeries().get_Id().toString();
-      logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
-      if (!document.get_ActiveMarkings().isEmpty()) {
-        logger.log(Level.FINE, "Document {0} has an active marking set - "
-            + "ignoring ACL.", vsDocId);
-        pushAcls = false;
-      }
-      if (pushAcls) {
-        logger.log(Level.FINEST, "Process permissions for document: {0}", guid);
-        Permissions.Acl permissions =
-            new Permissions(document.get_Permissions(), document.get_Owner())
-            .getAcl();
-        response.setAcl(getAcl(docId, permissions));
-        processInheritedPermissions(docId, permissions, response);
-      }
-
-      response.setContentType(document.get_MimeType());
-      // TODO(jlacey): Use ValidatedUri. Use a percent encoder, or URI's
-      // multi-argument constructors?
-      response.setDisplayUrl(
-          URI.create(connector.getWorkplaceDisplayUrl()
-              + vsDocId.replace("{", "%7B").replace("}", "%7D")));
-      response.setLastModified(document.get_DateLastModified());
-      response.setSecure(!connector.isPublic());
-
-      setMetadata(document, response);
-
-      logger.log(Level.FINEST, "Getting content");
-      if (hasAllowableSize(guid, document)) {
-        IOHelper.copyStream(document.getContent(), response.getOutputStream());
-      }
+  private void processDocument(Id guid, DocId docId, IDocument document,
+      Response response) throws IOException {
+    logger.log(Level.FINE, "Fetch document for DocId {0}", guid);
+    String vsDocId = document.getVersionSeries().get_Id().toString();
+    logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
+    if (!document.get_ActiveMarkings().isEmpty()) {
+      throw new UnsupportedOperationException(
+          "Document " + vsDocId + " has an active marking set.");
     }
+    logger.log(Level.FINEST, "Process permissions for document: {0}", guid);
+    Permissions.Acl permissions =
+        new Permissions(document.get_Permissions(), document.get_Owner())
+        .getAcl();
+    response.setAcl(getAcl(docId, permissions));
+    processInheritedPermissions(docId, permissions, response);
+
+    response.setContentType(document.get_MimeType());
+    // TODO(jlacey): Use ValidatedUri. Use a percent encoder, or URI's
+    // multi-argument constructors?
+    response.setDisplayUrl(
+        URI.create(options.getDisplayUrl()
+            + vsDocId.replace("{", "%7B").replace("}", "%7D")));
+    response.setLastModified(document.get_DateLastModified());
+    response.setSecure(!options.markAllDocsAsPublic());
+
+    setMetadata(document, response);
+
+    logger.log(Level.FINEST, "Getting content");
+    if (hasAllowableSize(guid, document)) {
+      IOHelper.copyStream(document.getContent(), response.getOutputStream());
+    }
+  }
 
   private Acl getAcl(DocId docId, Permissions.Acl permissions) {
     return createAcl(docId, getParentFragment(permissions),
-        Acl.InheritanceType.LEAF_NODE, connector.getGoogleGlobalNamespace(),
+        Acl.InheritanceType.LEAF_NODE, options.getGlobalNamespace(),
         union(
             permissions.getAllowUsers(PermissionSource.SOURCE_DEFAULT),
             permissions.getAllowUsers(PermissionSource.SOURCE_DIRECT)),
@@ -337,7 +324,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     } else {
       return createAcl(docId, parentFragment,
           Acl.InheritanceType.CHILD_OVERRIDES,
-          connector.getGoogleGlobalNamespace(), allowUsers, denyUsers,
+          options.getGlobalNamespace(), allowUsers, denyUsers,
           allowGroups, denyGroups);
     }
   }
@@ -373,15 +360,15 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     Set<String> properties = new HashSet<String>();
     for (String property : document.getPropertyNames()) {
       if (property != null) {
-        if (connector.getIncludedMeta().size() != 0) {
+        if (options.getIncludedMetadata().size() != 0) {
           // includeMeta - excludeMeta
-          if ((!connector.getExcludedMeta().contains(property)
-              && connector.getIncludedMeta().contains(property))) {
+          if ((!options.getExcludedMetadata().contains(property)
+              && options.getIncludedMetadata().contains(property))) {
             properties.add(property);
           }
         } else {
           // superSet - excludeMeta
-          if ((!connector.getExcludedMeta().contains(property))) {
+          if ((!options.getExcludedMetadata().contains(property))) {
             properties.add(property);
           }
         }
