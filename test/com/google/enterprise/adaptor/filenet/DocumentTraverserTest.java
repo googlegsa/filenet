@@ -85,6 +85,7 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
     options = TestObjectFactory.newConfigOptions();
   }
 
+  // TODO(jlacey): Rename or remove this method.
   private MockObjectStore newObjectStore() {
     return (MockObjectStore) options.getObjectStore(null);
   }
