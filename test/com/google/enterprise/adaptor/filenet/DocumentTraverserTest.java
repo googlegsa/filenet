@@ -38,19 +38,21 @@ import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.util.Id;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.io.ByteArrayOutputStream;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
 /** Tests for DocumentTraverser. */
-public class DocumentTraverserTest extends TraverserFactoryFixture {
+public class DocumentTraverserTest {
   private static final SimpleDateFormat dateFormatter =
       new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
@@ -81,18 +83,22 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
   public ExpectedException thrown = ExpectedException.none();
 
   @Before
-  public void setUp() {
+  public void setUp() throws SQLException {
     options = TestObjectFactory.newConfigOptions();
+    FileNetProxies.createTables();
   }
 
-  // TODO(jlacey): Rename or remove this method.
-  private MockObjectStore newObjectStore() {
+  @After
+  public void tearDown() throws SQLException {
+    JdbcFixture.dropAllObjects();
+  }
+
+  private MockObjectStore getObjectStore() {
     return (MockObjectStore) options.getObjectStore(null);
   }
 
   @Test
   public void testGetDocumentList_empty() throws Exception {
-    MockObjectStore objectStore = newObjectStore();
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
@@ -101,12 +107,12 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   @Test
   public void testGetDocumentList_nonEmpty() throws Exception {
-    MockObjectStore objectStore = newObjectStore();
+    MockObjectStore objectStore = getObjectStore();
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     Date now = new Date();
     String lastModified = dateFormatter.format(now);
     mockDocument(objectStore, id, lastModified, true,
-        getPermissions(PermissionSource.SOURCE_DIRECT));
+        TestObjectFactory.getPermissions(PermissionSource.SOURCE_DIRECT));
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
@@ -167,7 +173,6 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   @Test
   public void testGetDocIds_noResults() throws Exception {
-    MockObjectStore os = newObjectStore();
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
@@ -278,7 +283,6 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   @Test
   public void testCheckpointWithoutNextDocument() throws Exception {
-    MockObjectStore os = newObjectStore();
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
@@ -296,7 +300,7 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
 
   private void testMimeTypeAndContentSize(String mimeType, double size,
       boolean expectNotNull) throws Exception {
-    MockObjectStore os = newObjectStore();
+    MockObjectStore os = getObjectStore();
     mockDocument(os, "AAAAAAA1", DOCUMENT_TIMESTAMP, false, size, mimeType);
 
     DocumentTraverser traverser = new DocumentTraverser(options);
@@ -317,9 +321,9 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
   public void testGetDocContent() throws Exception {
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     DocId docId = newDocId(new Id(id));
-    MockObjectStore os = newObjectStore();
+    MockObjectStore os = getObjectStore();
     mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
-        getPermissions(
+        TestObjectFactory.getPermissions(
             PermissionSource.SOURCE_DIRECT,
             PermissionSource.SOURCE_TEMPLATE,
             PermissionSource.SOURCE_PARENT));
@@ -357,7 +361,7 @@ public class DocumentTraverserTest extends TraverserFactoryFixture {
    * @param entries an array of arrays of IDs and timestamps
    */
   private void addDocuments(String[][] entries) {
-    MockObjectStore os = newObjectStore();
+    MockObjectStore os = getObjectStore();
     for (String[] entry : entries) {
       mockDocument(os, entry[0], entry[1], /* releasedVersion */ true);
     }
