@@ -14,12 +14,15 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.replay;
 
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.ActiveMarkingListMock;
 import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 
 import com.filenet.api.collection.AccessPermissionList;
@@ -32,6 +35,7 @@ import com.filenet.api.events.DeletionEvent;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.util.Id;
 
+import java.io.ByteArrayInputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -108,9 +112,13 @@ class ObjectMocks {
         isReleasedVersion ? doc : null);
     expect(doc.get_VersionStatus()).andStubReturn(
         isReleasedVersion ? VersionStatus.RELEASED : VersionStatus.SUPERSEDED);
+    expect(doc.get_Owner()).andStubReturn(null);
+    expect(doc.accessContentStream(eq(0))).andStubReturn(
+        new ByteArrayInputStream("sample content".getBytes(UTF_8)));
     expect(doc.get_ContentSize()).andStubReturn(contentSize);
     expect(doc.get_MimeType()).andStubReturn(mimeType);
     expect(doc.get_Permissions()).andStubReturn(perms);
+    expect(doc.get_ActiveMarkings()).andStubReturn(new ActiveMarkingListMock());
     replay(vs, doc);
     objectStore.addObject(doc);
     return doc;
