@@ -16,10 +16,7 @@ package com.google.enterprise.adaptor.filenet;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
-import static com.google.enterprise.adaptor.IOHelper.copyStream;
 import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.US;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -35,15 +32,12 @@ import com.google.enterprise.adaptor.StartupException;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.util.Id;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -92,7 +86,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
           "Failed to access content engine's object store", e);
     }
 
-    documentTraverser = new MockTraverser(configOptions);
+    documentTraverser =
+        configOptions.getObjectFactory().getTraverser(configOptions);
   }
 
   @VisibleForTesting
@@ -159,58 +154,12 @@ public class FileNetAdaptor extends AbstractAdaptor {
     }
   }
 
-  @VisibleForTesting
   static interface Traverser {
     void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
         throws IOException, InterruptedException;
 
     void getDocContent(Id id, Request request, Response response)
         throws IOException, InterruptedException;
-  }
-
-  private static class MockTraverser implements Traverser {
-    private final String idFormat = "{AAAAAAAA-0000-0000-0000-%012d}";
-    private final int maxFeedUrls;
-
-    MockTraverser(ConfigOptions configOptions) {
-      this.maxFeedUrls = configOptions.getMaxFeedUrls();
-    }
-
-    @Override
-    public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
-        throws IOException, InterruptedException {
-      int counter;
-      if (checkpoint.isEmpty()) {
-        counter = 0;
-      } else {
-        String guid = checkpoint.guid;
-        counter = Integer.parseInt(
-            guid.substring(guid.lastIndexOf('-') + 1, guid.length() - 1));
-      }
-      int maxDocIds = maxFeedUrls - 1;
-      List<Record> records = new ArrayList<>(maxDocIds);
-      for (int i = 0; i < maxDocIds && ++counter < 10000; i++) {
-        DocId docid = newDocId(new Id(String.format(idFormat, counter)));
-        records.add(new Record.Builder(docid).build());
-      }
-      if (!records.isEmpty()) {
-        Checkpoint newCheckpoint = new Checkpoint(checkpoint.type,
-            new Date(), new Id(String.format(idFormat, counter)));
-        records.add(new Record.Builder(newDocId(newCheckpoint))
-            .setCrawlImmediately(true)
-            .build());
-        pusher.pushRecords(records);
-      }
-    }
-
-    @Override
-    public void getDocContent(Id id, Request request, Response response)
-        throws IOException {
-      String content = "Hello from document " + id;
-      response.setContentType("text/plain");
-      copyStream(new ByteArrayInputStream(content.getBytes(UTF_8)),
-                 response.getOutputStream());
-    }
   }
 
   @VisibleForTesting
