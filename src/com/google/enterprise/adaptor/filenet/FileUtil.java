@@ -79,6 +79,7 @@ class FileUtil {
     filterSet.add(PropertyNames.ID);
     filterSet.add(PropertyNames.CLASS_DESCRIPTION);
     filterSet.add(PropertyNames.CONTENT_ELEMENTS);
+    filterSet.add(PropertyNames.CONTENT_SIZE);
     filterSet.add(PropertyNames.DATE_LAST_MODIFIED);
     filterSet.add(PropertyNames.MIME_TYPE);
     filterSet.add(PropertyNames.VERSION_SERIES);
