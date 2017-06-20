@@ -69,7 +69,7 @@ class MockDocument implements IDocument {
   }
 
   @Override
-  public InputStream getContent() {
+  public InputStream accessContentStream(int index) {
     return new ByteArrayInputStream(
         "sample content".getBytes(StandardCharsets.UTF_8));
   }
@@ -119,45 +119,30 @@ class MockDocument implements IDocument {
   }
 
   @Override
-  public Set<String> getPropertyNames() {
-    return props.keySet();
+  public IDocumentProperties getDocumentProperties() {
+    return new MockDocumentProperties();
   }
 
-  @Override
-  public void getProperty(String name, List<String> list) {
-    if (PropertyNames.ID.equalsIgnoreCase(name)) {
-      String val = props.get(name).toString();
-      list.add(val);
-    } else if (PropertyNames.DATE_LAST_MODIFIED.equalsIgnoreCase(name)) {
-      getPropertyDateValue(name, list);
-    } else {
-      getPropertyValue(name, list);
+  private class MockDocumentProperties implements IDocumentProperties {
+    @Override
+    public Set<String> getPropertyNames() {
+      return props.keySet();
     }
-  }
 
-  private void getPropertyValue(String name, List<String> list) {
-    Object obj = props.get(name);
-    if (obj == null) {
-      return;
+    @Override
+    public void getProperty(String name, List<String> list) {
+      Object obj = props.get(name);
+      if (obj == null) {
+        return;
+      } else if (obj instanceof Date) {
+        Date val = (Date) props.get(name);
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(val);
+        list.add(/*TODO: ISO 8601*/ val.toString());
+      } else {
+        String val = props.get(name).toString();
+        list.add(val);
+      }
     }
-    if (obj instanceof String) {
-      getPropertyStringValue(name, list);
-    } else if (obj instanceof Date) {
-      getPropertyDateValue(name, list);
-    }
-  }
-
-  @Override
-  public void getPropertyStringValue(String name, List<String> list) {
-    String val = (String) props.get(name);
-    list.add(val);
-  }
-
-  @Override
-  public void getPropertyDateValue(String name, List<String> list) {
-    Date val = (Date) props.get(name);
-    Calendar cal = Calendar.getInstance();
-    cal.setTime(val);
-    list.add(/*TODO: ISO 8601*/ val.toString());
   }
 }
