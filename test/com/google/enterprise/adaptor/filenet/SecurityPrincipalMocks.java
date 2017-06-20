@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
 import com.google.common.collect.ImmutableList;
 
 import com.filenet.api.security.Group;
 import com.filenet.api.security.User;
 
-public class SecurityPrincipalMocks {
+class SecurityPrincipalMocks {
+  static final String ADMIN_USERNAME = "Lord";
+  static final String DOMAIN = "all-I-can-see";
 
   public static String getDistinguishedName(String dnsUserName) {
     String shortName;
@@ -47,12 +49,11 @@ public class SecurityPrincipalMocks {
   }
 
   public static User createAdministratorUser() {
-    String userName = TestConnection.adminUsername + "@"
-        + TestConnection.domain;
+    String userName = ADMIN_USERNAME + "@" + DOMAIN;
     String shortName = "administrator";
     String distinguishedName = getDistinguishedName(userName);
 
-    String groupName = "administrators@" + TestConnection.domain;
+    String groupName = "administrators@" + DOMAIN;
     Group groupMock1 = new GroupMock(groupName, "administrators",
         getDistinguishedName(groupName));
 
@@ -62,7 +63,7 @@ public class SecurityPrincipalMocks {
   }
 
   public static User createUserWithShortName(String shortName) {
-    String userName = shortName + "@" + TestConnection.domain;
+    String userName = shortName + "@" + DOMAIN;
     String distinguishedName = getDistinguishedName(userName);
 
     Group everyone = createEveryoneGroup();
@@ -95,7 +96,7 @@ public class SecurityPrincipalMocks {
   }
 
   public static Group createEveryoneGroup() {
-    String groupName = "everyone@" + TestConnection.domain;
+    String groupName = "everyone@" + DOMAIN;
     return new GroupMock(groupName, "everyone",
         getDistinguishedName(groupName));
   }

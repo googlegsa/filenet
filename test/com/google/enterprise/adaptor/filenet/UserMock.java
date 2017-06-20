@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
-import com.google.enterprise.connector.filenet4.EngineCollectionMocks.GroupSetMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.GroupSetMock;
 
 import com.filenet.api.collection.GroupSet;
 import com.filenet.api.security.Group;

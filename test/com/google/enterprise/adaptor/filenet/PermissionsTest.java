@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.enterprise.connector.filenet4;
+package com.google.enterprise.adaptor.filenet;
 
-import com.google.enterprise.connector.filenet4.EngineCollectionMocks.AccessPermissionListMock;
+import static com.google.enterprise.adaptor.filenet.SecurityPrincipalMocks.DOMAIN;
+
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
 
 import com.filenet.api.constants.AccessLevel;
 import com.filenet.api.constants.AccessRight;
@@ -31,8 +33,9 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+/** Tests the Permissions utility class. */
 public class PermissionsTest extends TestCase {
-  private static int VIEW_ACCESS_RIGHTS =
+  private static final int VIEW_ACCESS_RIGHTS =
       AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
 
   private AccessPermissionListMock perms;
@@ -195,9 +198,9 @@ public class PermissionsTest extends TestCase {
 
   public void testUserGroupAccess_WithDomainName() {
     Set<String> userGroups = getGroupNames(user);
-    assertTrue(userGroups.contains("administrators@" + TestConnection.domain));
+    assertTrue(userGroups.contains("administrators@" + DOMAIN));
     testGroupAccess(AccessType.ALLOW, VIEW_ACCESS_RIGHTS,
-        "administrators@" + TestConnection.domain, user, true);
+        "administrators@" + DOMAIN, user, true);
   }
 
   public void testUserGroupAccess_WithShortName() {
@@ -215,7 +218,7 @@ public class PermissionsTest extends TestCase {
     Group everyone = SecurityPrincipalMocks.createEveryoneGroup();
     assertEquals(everyone.get_DistinguishedName(),
         SecurityPrincipalMocks.getDistinguishedName(
-            "everyone@" + TestConnection.domain));
+            "everyone@" + DOMAIN));
 
     User jsmith = SecurityPrincipalMocks.createUserWithShortName("jsmith");
     assertTrue(getGroupNames(jsmith).contains(everyone.get_Name()));
@@ -227,7 +230,7 @@ public class PermissionsTest extends TestCase {
   @SuppressWarnings({"unchecked"})
   public void testUserGroupAccess_HavingBothAllowAndDeny() {
     Set<String> userGroups = getGroupNames(user);
-    assertTrue(userGroups.contains("administrators@" + TestConnection.domain));
+    assertTrue(userGroups.contains("administrators@" + DOMAIN));
 
     AccessPermissionMock permAllow =
         new AccessPermissionMock(PermissionSource.SOURCE_DIRECT);
@@ -242,7 +245,7 @@ public class PermissionsTest extends TestCase {
     permDeny.set_AccessType(AccessType.DENY);
     permDeny.set_AccessMask(VIEW_ACCESS_RIGHTS);
     permDeny.set_GranteeType(SecurityPrincipalType.GROUP);
-    permDeny.set_GranteeName("administrators@" + TestConnection.domain);
+    permDeny.set_GranteeName("administrators@" + DOMAIN);
     perms.add(permDeny);
 
     Permissions testPermsDenyGroup = new Permissions(perms);
