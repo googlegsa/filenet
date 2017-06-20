@@ -28,6 +28,10 @@ import javax.security.auth.Subject;
  * Factory for producing instances various FileNet Objects.
  */
 class FileNetObjectFactory implements ObjectFactory {
+  @Override
+  public FileNetAdaptor.Traverser getTraverser(ConfigOptions options) {
+    return new DocumentTraverser(options);
+  }
 
   @Override
   public AutoConnection getConnection(String contentEngineUri,

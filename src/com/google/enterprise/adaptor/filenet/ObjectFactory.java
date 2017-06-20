@@ -22,6 +22,8 @@ import com.filenet.api.exception.EngineRuntimeException;
  * Factory for producing instances various FileNet Objects.
  */
 interface ObjectFactory {
+  FileNetAdaptor.Traverser getTraverser(ConfigOptions options);
+
   AutoConnection getConnection(String contentEngineUri,
       String username, String password)
       throws EngineRuntimeException;
