@@ -35,6 +35,7 @@ import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.core.Document;
+import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
 import com.filenet.api.util.Id;
@@ -72,7 +73,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
       throws IOException, InterruptedException {
     try (AutoConnection connection = options.getConnection()) {
-      IObjectStore objectStore = options.getObjectStore(connection);
+      ObjectStore objectStore = options.getObjectStore(connection);
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
       ObjectFactory objectFactory = options.getObjectFactory();
@@ -178,10 +179,10 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   public void getDocContent(Id guid, Request request, Response response)
       throws IOException {
     try (AutoConnection connection = options.getConnection()) {
-      IObjectStore objectStore = options.getObjectStore(connection);
+      ObjectStore objectStore = options.getObjectStore(connection);
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
-      IDocument document = (IDocument)
+      Document document = (Document)
           objectStore.fetchObject(ClassNames.DOCUMENT, guid,
               FileUtil.getDocumentPropertyFilter(
                   options.getIncludedMetadata()));
@@ -193,10 +194,10 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     }
   }
 
-  private void processDocument(Id guid, DocId docId, IDocument document,
+  private void processDocument(Id guid, DocId docId, Document document,
       Response response) throws IOException {
     logger.log(Level.FINE, "Fetch document for DocId {0}", guid);
-    String vsDocId = document.getVersionSeries().get_Id().toString();
+    String vsDocId = document.get_VersionSeries().get_Id().toString();
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
 
     try {
@@ -379,8 +380,9 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     return builder.build();
   }
 
-  private void setMetadata(IDocument document, Response response) {
-    IDocumentProperties properties = document.getDocumentProperties();
+  private void setMetadata(Document document, Response response) {
+    IDocumentProperties properties =
+        options.getObjectFactory().getDocumentProperties(document);
     for (String name : getPropertyNames(properties)) {
       ArrayList<String> list = new ArrayList<>();
       properties.getProperty(name, list);
@@ -412,7 +414,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     return names;
   }
 
-  private boolean hasAllowableSize(Id guid, IDocument document) {
+  private boolean hasAllowableSize(Id guid, Document document) {
     Double value = document.get_ContentSize();
     if (value == null) {
       logger.log(Level.FINEST,

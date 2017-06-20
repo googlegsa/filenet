@@ -21,12 +21,12 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IndependentObjectSetMock;
 
 import com.filenet.api.collection.IndependentObjectSet;
-import com.filenet.api.collection.PropertyDefinitionList;
 import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.IndependentObject;
+import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
@@ -36,10 +36,15 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.security.auth.Subject;
 
 class FileNetProxies implements ObjectFactory {
@@ -67,22 +72,32 @@ class FileNetProxies implements ObjectFactory {
     }
   }
 
-  private final MockObjectStore objectStore = new MockObjectStore();
+  private final MockObjectStore objectStore = Proxies.newProxyInstance(
+      MockObjectStore.class, new MockObjectStoreImpl());
 
   @Override
-  public IObjectStore getObjectStore(AutoConnection connection,
+  public ObjectStore getObjectStore(AutoConnection connection,
       String objectStoreName) throws EngineRuntimeException {
     return objectStore;
   }
 
-  static class MockObjectStore implements IObjectStore {
+  interface MockObjectStore extends ObjectStore {
+    /** Adds an object to the store. */
+    void addObject(Document object);
+
+    /** Verifies that the given object is in the store. */
+    boolean containsObject(String type, Id id);
+
+    /** Retrieves all the objects in the store. */
+    Collection<Document> getObjects();
+  }
+
+  static class MockObjectStoreImpl {
     private final LinkedHashMap<Id, Document> objects = new LinkedHashMap<>();
 
-    private MockObjectStore() { }
+    private MockObjectStoreImpl() { }
 
-    /**
-     * Adds an object to the store.
-     */
+    /** Adds an object to the store. */
     public void addObject(Document object) {
       objects.put(object.get_Id(), object);
     }
@@ -101,15 +116,16 @@ class FileNetProxies implements ObjectFactory {
       return objects.values();
     }
 
-    @Override
-    public IBaseObject fetchObject(String type, Id id, PropertyFilter filter) {
+    /* @see ObjectStore#fetchObject */
+    public IndependentObject fetchObject(String type, Id id,
+        PropertyFilter filter) {
       if (ClassNames.DOCUMENT.equals(type)) {
         Document obj = objects.get(id);
         if (obj == null) {
           throw new /*TODO*/ RuntimeException("Unable to fetch document "
               + id);
         } else {
-          return new MockDocument(obj);
+          return obj;
         }
       } else {
         throw new AssertionError("Unexpected type " + type);
@@ -118,13 +134,47 @@ class FileNetProxies implements ObjectFactory {
   }
 
   @Override
-  public PropertyDefinitionList getPropertyDefinitions(
-      IObjectStore objectStore, Id objectId, PropertyFilter filter) {
-    throw new UnsupportedOperationException();
+  public IDocumentProperties getDocumentProperties(Document document) {
+    return new MockDocumentProperties(document);
+  }
+
+  private class MockDocumentProperties implements IDocumentProperties {
+    private final Map<String, Object> props;
+
+    MockDocumentProperties(Document doc) {
+      this.props = new HashMap<String, Object>();
+      props.put(PropertyNames.ID, doc.get_Id());
+      props.put(PropertyNames.DATE_LAST_MODIFIED, doc.get_DateLastModified());
+      props.put(PropertyNames.MIME_TYPE, doc.get_MimeType());
+      Double contentSize = doc.get_ContentSize();
+      props.put(PropertyNames.CONTENT_SIZE,
+          (contentSize == null) ? null : contentSize.toString());
+    }
+
+    @Override
+    public Set<String> getPropertyNames() {
+      return props.keySet();
+    }
+
+    @Override
+    public void getProperty(String name, List<String> list) {
+      Object obj = props.get(name);
+      if (obj == null) {
+        return;
+      } else if (obj instanceof Date) {
+        Date val = (Date) props.get(name);
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(val);
+        list.add(/*TODO: ISO 8601*/ val.toString());
+      } else {
+        String val = props.get(name).toString();
+        list.add(val);
+      }
+    }
   }
 
   @Override
-  public SearchWrapper getSearch(IObjectStore objectStore) {
+  public SearchWrapper getSearch(ObjectStore objectStore) {
     IndependentObjectSet objectSet =
         new IndependentObjectSetMock(
             ((MockObjectStore) objectStore).getObjects());

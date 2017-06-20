@@ -21,6 +21,8 @@ import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.SensitiveValueDecoder;
 
+import com.filenet.api.core.ObjectStore;
+
 import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.logging.Level;
@@ -176,7 +178,7 @@ class ConfigOptions {
         sensitiveValueDecoder.decodeValue(password));
   }
 
-  public IObjectStore getObjectStore(AutoConnection connection) {
+  public ObjectStore getObjectStore(AutoConnection connection) {
     return objectFactory.getObjectStore(connection, objectStoreName);
   }
 
