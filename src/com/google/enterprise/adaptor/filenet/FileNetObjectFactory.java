@@ -14,14 +14,12 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-import com.filenet.api.admin.DocumentClassDefinition;
-import com.filenet.api.collection.PropertyDefinitionList;
+import com.filenet.api.core.Document;
 import com.filenet.api.core.Domain;
 import com.filenet.api.core.Factory;
+import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
-import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.query.SearchScope;
-import com.filenet.api.util.Id;
 import com.filenet.api.util.UserContext;
 
 import javax.security.auth.Subject;
@@ -43,29 +41,20 @@ class FileNetObjectFactory implements ObjectFactory {
   }
 
   @Override
-  public IObjectStore getObjectStore(AutoConnection connection,
+  public ObjectStore getObjectStore(AutoConnection connection,
       String objectStoreName) throws EngineRuntimeException {
     Domain domain = Factory.Domain.fetchInstance(
         connection.getConnection(), null, null);
-    return new FnObjectStore(
-        Factory.ObjectStore.fetchInstance(domain, objectStoreName, null));
+    return Factory.ObjectStore.fetchInstance(domain, objectStoreName, null);
   }
 
   @Override
-  public PropertyDefinitionList getPropertyDefinitions(
-      IObjectStore objectStore, Id objectId, PropertyFilter filter)
-      throws EngineRuntimeException {
-    DocumentClassDefinition documentClassDefinition =
-        Factory.DocumentClassDefinition.fetchInstance(
-            ((FnObjectStore) objectStore).getObjectStore(), objectId, filter);
-    return documentClassDefinition.get_PropertyDefinitions();
+  public IDocumentProperties getDocumentProperties(Document document) {
+    return new FnDocumentProperties(document);
   }
 
   @Override
-  public SearchWrapper getSearch(IObjectStore objectStore) {
-    SearchScope search =
-        new SearchScope(((FnObjectStore) objectStore).getObjectStore());
-
-    return new SearchWrapper(search);
+  public SearchWrapper getSearch(ObjectStore objectStore) {
+    return new SearchWrapper(new SearchScope(objectStore));
   }
 }
