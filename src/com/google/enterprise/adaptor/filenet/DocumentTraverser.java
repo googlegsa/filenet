@@ -334,7 +334,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         new Object[] {docId, fragment, secAcl});
     response.putNamedResource(fragment, secAcl);
 
-    // Set the distinct document ACL.
+    // Set the direct and default document ACL.
     Acl docAcl = createAcl(docId, fragment, Acl.InheritanceType.LEAF_NODE,
         union(
             permissions.getAllowUsers(PermissionSource.SOURCE_DEFAULT),
@@ -348,7 +348,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         union(
             permissions.getDenyGroups(PermissionSource.SOURCE_DEFAULT),
             permissions.getDenyGroups(PermissionSource.SOURCE_DIRECT)));
-    logger.log(Level.FINEST, "Create ACL for distinct permissions of {0}: {}",
+    logger.log(Level.FINEST, "Create ACL for direct permissions of {0}: {1}",
         new Object[] {docId, docAcl});
     response.setAcl(docAcl);
   }
