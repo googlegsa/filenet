@@ -38,6 +38,8 @@ import com.filenet.api.core.Document;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
+import com.filenet.api.security.ActiveMarking;
+import com.filenet.api.security.Marking;
 import com.filenet.api.util.Id;
 
 import java.io.IOException;
@@ -46,6 +48,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -67,6 +70,12 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
   public DocumentTraverser(ConfigOptions options) {
     this.options = options;
+  }
+
+  /** Percent escapes the curly braces in an Id string. */
+  @VisibleForTesting
+  static String percentEscape(String id) {
+    return id.replace("{", "%7B").replace("}", "%7D");
   }
 
   @Override
@@ -205,22 +214,17 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
 
     ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
-    if (!activeMarkings.isEmpty()) {
-      throw new UnsupportedOperationException(
-          "Document " + vsDocId + " has an active marking set.");
-    }
     Permissions.Acl permissions =
         new Permissions(document.get_Permissions(), document.get_Owner())
         .getAcl();
     response.setAcl(getAcl(docId, permissions));
-    processInheritedPermissions(docId, permissions, response);
+    processInheritedPermissions(docId, activeMarkings, permissions, response);
 
     response.setContentType(document.get_MimeType());
     // TODO(jlacey): Use ValidatedUri. Use a percent encoder, or URI's
     // multi-argument constructors?
     response.setDisplayUrl(
-        URI.create(options.getDisplayUrl()
-            + vsDocId.replace("{", "%7B").replace("}", "%7D")));
+        URI.create(options.getDisplayUrl() + percentEscape(vsDocId)));
     response.setLastModified(document.get_DateLastModified());
     response.setSecure(!options.markAllDocsAsPublic());
 
@@ -261,7 +265,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
   private Acl getAcl(DocId docId, Permissions.Acl permissions) {
     return createAcl(docId, getParentFragment(permissions),
-        Acl.InheritanceType.LEAF_NODE, options.getGlobalNamespace(),
+        Acl.InheritanceType.LEAF_NODE,
         union(
             permissions.getAllowUsers(PermissionSource.SOURCE_DEFAULT),
             permissions.getAllowUsers(PermissionSource.SOURCE_DIRECT)),
@@ -276,6 +280,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
             permissions.getDenyGroups(PermissionSource.SOURCE_DIRECT)));
   }
 
+  public static final String SEC_MARKING_POSTFIX = "MARK";
   public static final String SEC_POLICY_POSTFIX = "TMPL";
   public static final String SEC_FOLDER_POSTFIX = "FLDR";
 
@@ -319,56 +324,64 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   // security template in particular, so that SecurityPolicyTraverser can
   // update just the one ACL and not have to rewire the chain?
   private void processInheritedPermissions(DocId docId,
-      Permissions.Acl permissions, Response response) {
-    // Send add request for adding ACLs inherited from parent folders.
-    String secParentFragment = null;
-    Acl folderAcl =
-        createAcl(docId, permissions, PermissionSource.SOURCE_PARENT, null);
-    if (folderAcl == null) {
-      logger.log(Level.FINEST,
-          "{0} does not have inherited folder permissions", docId);
-    } else {
-      logger.log(Level.FINEST, "Create ACL for folder {0}#{1}: {2}",
-          new Object[] {docId, SEC_FOLDER_POSTFIX, folderAcl});
-      response.putNamedResource(SEC_FOLDER_POSTFIX, folderAcl);
-      secParentFragment = SEC_FOLDER_POSTFIX;
+      ActiveMarkingList activeMarkings, Permissions.Acl permissions,
+      Response response) {
+    String fragment = null;
+
+    // Send add requests for adding ACLs inherited from ActiveMarkings.
+    // The ActiveMarking ACLs must be ANDed with all the other ACLs.
+    // The GSA supports AND-BOTH-PERMIT only at the root of the ACL
+    // inheritance chain.
+    Iterator<?> iterator = activeMarkings.iterator();
+    while (iterator.hasNext()) {
+      ActiveMarking activeMarking = (ActiveMarking) iterator.next();
+      Marking marking = activeMarking.get_Marking();
+      Permissions.Acl markingPerms =
+          new Permissions(marking.get_Permissions()).getAcl();
+      Acl markingAcl = createAcl(docId, fragment,
+          Acl.InheritanceType.AND_BOTH_PERMIT,
+          markingPerms.getAllowUsers(), markingPerms.getDenyUsers(),
+          markingPerms.getAllowGroups(), markingPerms.getDenyGroups());
+      fragment = SEC_MARKING_POSTFIX
+          + percentEscape(marking.get_Id().toString());
+      logger.log(Level.FINEST, "Create ACL for active marking {0} {1}#{2}: {3}",
+          new Object[] {activeMarking.get_PropertyDisplayName(), docId,
+              fragment, markingAcl});
+      response.putNamedResource(fragment, markingAcl);
     }
+
+    // Send add request for adding ACLs inherited from parent folders.
+    Acl folderAcl = createAcl(docId, permissions,
+        PermissionSource.SOURCE_PARENT, fragment);
+    fragment = SEC_FOLDER_POSTFIX;
+    logger.log(Level.FINEST, "Create ACL for folder {0}#{1}: {2}",
+        new Object[] {docId, fragment, folderAcl});
+    response.putNamedResource(fragment, folderAcl);
 
     // Send add request for adding ACLs inherited from security template.
     Acl secAcl = createAcl(docId, permissions, PermissionSource.SOURCE_TEMPLATE,
-        secParentFragment);
-    if (secAcl == null) {
-      logger.log(Level.FINEST,
-          "{0} does not have inherited template permissions", docId);
-    } else {
-      logger.log(Level.FINEST,
-          "Create ACL for security template {0}#{1}: {2}",
-          new Object[] {docId, SEC_POLICY_POSTFIX, secAcl});
-      response.putNamedResource(SEC_POLICY_POSTFIX, secAcl);
-    }
+        fragment);
+    fragment = SEC_POLICY_POSTFIX;
+    logger.log(Level.FINEST,
+        "Create ACL for security template {0}#{1}: {2}",
+        new Object[] {docId, fragment, secAcl});
+    response.putNamedResource(fragment, secAcl);
   }
 
   private Acl createAcl(DocId docId, Permissions.Acl permissions,
       PermissionSource permSrc, String parentFragment) {
-    Set<String> allowUsers = permissions.getAllowUsers(permSrc);
-    Set<String> denyUsers = permissions.getDenyUsers(permSrc);
-    Set<String> allowGroups = permissions.getAllowGroups(permSrc);
-    Set<String> denyGroups = permissions.getDenyGroups(permSrc);
-    if (allowUsers.isEmpty() && denyUsers.isEmpty()
-        && allowGroups.isEmpty() && denyGroups.isEmpty()) {
-      return null;
-    } else {
-      return createAcl(docId, parentFragment,
-          Acl.InheritanceType.CHILD_OVERRIDES,
-          options.getGlobalNamespace(), allowUsers, denyUsers,
-          allowGroups, denyGroups);
-    }
+    return createAcl(docId, parentFragment, Acl.InheritanceType.CHILD_OVERRIDES,
+        permissions.getAllowUsers(permSrc),
+        permissions.getDenyUsers(permSrc),
+        permissions.getAllowGroups(permSrc),
+        permissions.getDenyGroups(permSrc));
   }
 
   private Acl createAcl(DocId docId, String parentFragment,
-      Acl.InheritanceType inheritanceType, String namespace,
+      Acl.InheritanceType inheritanceType,
       Set<String> allowUsers, Set<String> denyUsers,
       Set<String> allowGroups, Set<String> denyGroups) {
+    String namespace = options.getGlobalNamespace();
     Acl.Builder builder = new Acl.Builder();
     builder.setEverythingCaseInsensitive();
     builder.setInheritanceType(inheritanceType);
