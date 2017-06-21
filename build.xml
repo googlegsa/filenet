@@ -41,16 +41,20 @@
   <property name="compile.java.bootclasspath" value="${build.bootclasspath}"/>
 
   <path id="adaptor.build.classpath">
-<!--
-    <fileset dir="${lib.dir}">
-    </fileset>
--->
     <pathelement location="${adaptor.jar}"/>
     <pathelement location="${filenet.jarfile}"/>
   </path>
 
+  <path id="adaptor.test.classpath">
+    <path refid="adaptor.build.classpath"/>
+    <fileset dir="third_party/easymock" includes="*.jar"/>
+    <pathelement location="third_party/h2database/h2-1.3.176.jar"/>
+    <pathelement location="resources"/>
+  </path>
+
   <path id="adaptor.run.classpath">
     <path refid="adaptor.build.classpath"/>
+    <pathelement location="resources"/>
   </path>
 
   <path id="junit.classpath">
@@ -148,7 +152,7 @@ lib/plexi submodule or add the the command line argument
            source="${compile.java.version}" target="${compile.java.version}">
       <bootclasspath path="${compile.java.bootclasspath}"/>
       <compilerarg line="-Xlint -Xlint:-serial -Xlint:-path"/>
-      <classpath refid="adaptor.build.classpath"/>
+      <classpath refid="adaptor.test.classpath"/>
       <classpath location="${build-src.dir}"/>
       <classpath refid="junit.classpath"/>
     </javac>
@@ -276,7 +280,7 @@ lib/plexi submodule or add the the command line argument
       dir="${basedir}" maxmemory="512m">
       <sysproperty key="net.sourceforge.cobertura.datafile"
         file="${build-instrument.dir}/cobertura.ser"/>
-      <classpath refid="adaptor.run.classpath"/>
+      <classpath refid="adaptor.test.classpath"/>
       <classpath refid="cobertura.classpath"/>
       <classpath refid="junit.classpath"/>
       <classpath location="${build-instrument.dir}"/>

@@ -54,8 +54,13 @@ class ConfigOptions {
 
   public ConfigOptions(AdaptorContext context)
       throws InvalidConfigurationException {
-    Config config = context.getConfig();
-    sensitiveValueDecoder = context.getSensitiveValueDecoder();
+    this(context.getConfig(), context.getSensitiveValueDecoder());
+  }
+
+  // TODO(jlacey): Hack for testing. Replace with mock AdaptorContext.
+  ConfigOptions(Config config,
+      SensitiveValueDecoder sensitiveValueDecoder) {
+    this.sensitiveValueDecoder = sensitiveValueDecoder;
 
     contentEngineUrl = config.getValue("filenet.contentEngineUrl");
     logger.log(Level.CONFIG, "filenet.contentEngineUrl: {0}", contentEngineUrl);
@@ -168,12 +173,12 @@ class ConfigOptions {
     return objectFactory;
   }
 
-  public Connection getConnection() {
+  public AutoConnection getConnection() {
     return objectFactory.getConnection(contentEngineUrl, username,
         sensitiveValueDecoder.decodeValue(password));
   }
 
-  public ObjectStore getObjectStore(Connection connection) {
+  public ObjectStore getObjectStore(AutoConnection connection) {
     return objectFactory.getObjectStore(connection, objectStoreName);
   }
 

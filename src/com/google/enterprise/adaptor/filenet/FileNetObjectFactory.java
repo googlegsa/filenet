@@ -14,10 +14,12 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import com.filenet.api.core.Document;
 import com.filenet.api.core.Domain;
 import com.filenet.api.core.Factory;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.query.SearchScope;
 import com.filenet.api.util.UserContext;
 
 import javax.security.auth.Subject;
@@ -26,23 +28,37 @@ import javax.security.auth.Subject;
  * Factory for producing instances various FileNet Objects.
  */
 class FileNetObjectFactory implements ObjectFactory {
+  @Override
+  public FileNetAdaptor.Traverser getTraverser(ConfigOptions options) {
+    return new DocumentTraverser(options);
+  }
 
   @Override
-  public Connection getConnection(String contentEngineUri,
+  public AutoConnection getConnection(String contentEngineUri,
       String username, String password)
       throws EngineRuntimeException {
     com.filenet.api.core.Connection connection =
         Factory.Connection.getConnection(contentEngineUri);
     Subject subject =
         UserContext.createSubject(connection, username, password, "FileNetP8");
-    return new Connection(connection, subject);
+    return new AutoConnection(connection, subject);
   }
 
   @Override
-  public ObjectStore getObjectStore(Connection connection,
+  public ObjectStore getObjectStore(AutoConnection connection,
       String objectStoreName) throws EngineRuntimeException {
     Domain domain = Factory.Domain.fetchInstance(
         connection.getConnection(), null, null);
     return Factory.ObjectStore.fetchInstance(domain, objectStoreName, null);
+  }
+
+  @Override
+  public IDocumentProperties getDocumentProperties(Document document) {
+    return new FnDocumentProperties(document);
+  }
+
+  @Override
+  public SearchWrapper getSearch(ObjectStore objectStore) {
+    return new SearchWrapper(new SearchScope(objectStore));
   }
 }
