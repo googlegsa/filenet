@@ -385,7 +385,7 @@ public class DocumentTraverserTest {
     assertEquals(RecordingResponse.State.NO_CONTENT, response.getState());
     assertEquals(0, baos.size());
   }
-  
+
   @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
   @Test
   public void testGetDocContent_activeMarkings() throws Exception {
@@ -408,8 +408,9 @@ public class DocumentTraverserTest {
                 TestObjectFactory.getPermissions(PermissionSource.MARKING))));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
     RecordingResponse response = new RecordingResponse();
-    traverser.getDocContent(new Id(id), null, response);
+    traverser.getDocContent(new Id(id), request, response);
 
     assertEquals(
         ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED,
