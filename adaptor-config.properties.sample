@@ -2,3 +2,17 @@
 
 # Hostname or IP address of the GSA this adaptor will be feeding.
 gsa.hostname =
+
+# FileNet config.
+# Required properties.
+filenet.contentEngineUrl =
+filenet.username =
+filenet.password =
+filenet.objectStore =
+filenet.displayUrl  =
+
+# Optional properties.
+# filenet.additionalWhereClause =
+# filenet.deleteAdditionalWhereClause =
+# filenet.excludedMetadata =
+# filenet.includedMetadata =

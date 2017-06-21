@@ -17,6 +17,7 @@ package com.google.enterprise.adaptor.filenet;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.US;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -128,7 +129,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
           case "document":
             documentTraverser.getDocIds(checkpoint, context.getDocIdPusher());
             resp.setNoIndex(true);
-            resp.getOutputStream();
+            resp.setContentType("text/plain");
+            resp.getOutputStream().write(" ".getBytes(UTF_8));
             break;
           default:
             logger.log(Level.WARNING, "Unsupported type: " + checkpoint);

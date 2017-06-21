@@ -21,10 +21,11 @@ import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockActiveMarking;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Strings;
@@ -33,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
+import com.google.enterprise.adaptor.DocIdPusher.Record;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.ActiveMarkingListMock;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
@@ -103,53 +105,53 @@ public class DocumentTraverserTest {
   }
 
   @Test
-  public void testGetDocumentList_empty() throws Exception {
+  public void testGetDocIds_emptyNoResults() throws Exception {
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
-    assertEquals(pusher.getDocIds().toString(), 0, pusher.getDocIds().size());
+    assertEquals(ImmutableList.of(), pusher.getRecords());
   }
 
   @Test
-  public void testGetDocumentList_nonEmpty() throws Exception {
+  public void testGetDocIds_emptyWithResults() throws Exception {
     MockObjectStore objectStore = getObjectStore();
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     Date now = new Date();
     String lastModified = dateFormatter.format(now);
     mockDocument(objectStore, id, lastModified, true,
         TestObjectFactory.getPermissions(PermissionSource.SOURCE_DIRECT));
+
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
 
-    assertEquals(ImmutableList.of(new Id(id)), getIds(pusher.getDocIds()));
-    String checkpoint = getCheckpoint(pusher.getDocIds());
+    assertEquals(ImmutableList.of(new Id(id)), getIds(pusher.getRecords()));
+    String checkpoint = getCheckpoint(pusher.getRecords());
     assertTrue(checkpoint, checkpoint.contains(id));
     assertTrue(checkpoint,
         checkpoint.contains(Checkpoint.getQueryTimeString(now)));
   }
 
-  private ImmutableList<Id> getIds(List<DocId> docList) {
+  private ImmutableList<Id> getIds(List<Record> docList) {
     ImmutableList.Builder<Id> builder = ImmutableList.builder();
-    for (DocId docId : docList) {
-      String s = docId.getUniqueId();
-      if (s.startsWith("guid/")) {
-        builder.add(new Id(s.substring(5)));
-      }
+    for (Record record : docList.subList(0, docList.size() - 1)) {
+      String s = record.getDocId().getUniqueId();
+      assertThat(s, startsWith("guid/"));
+      assertFalse("Record is crawl-immediately",
+          record.isToBeCrawledImmediately());
+      builder.add(new Id(s.substring(5)));
     }
     return builder.build();
   }
 
-  private String getCheckpoint(List<DocId> docList) {
-    String checkpoint = null;
-    for (DocId docId : docList) {
-      String s = docId.getUniqueId();
-      if (s.startsWith("pseudo/")) {
-        assertNull(checkpoint);
-        checkpoint = s.substring(7);
-      }
-    }
-    return checkpoint;
+  private String getCheckpoint(List<Record> docList) {
+    assertTrue(docList.toString(), docList.size() > 1);
+    Record record = docList.get(docList.size() - 1);
+    String s = record.getDocId().getUniqueId();
+    assertThat(s, startsWith("pseudo/"));
+    assertTrue("Record is not crawl-immediately",
+        record.isToBeCrawledImmediately());
+    return s.substring(7);
   }
 
   @Test
@@ -181,8 +183,7 @@ public class DocumentTraverserTest {
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
-    List<DocId> docList = pusher.getDocIds();
-    assertEquals(ImmutableList.of(), docList);
+    assertEquals(ImmutableList.of(), pusher.getRecords());
   }
 
   @Test
@@ -194,7 +195,7 @@ public class DocumentTraverserTest {
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
-    List<DocId> docList = pusher.getDocIds();
+    List<Record> docList = pusher.getRecords();
     for (Id id : getIds(docList)) {
       RecordingResponse response = new RecordingResponse();
       traverser.getDocContent(id, null, response);
@@ -219,7 +220,7 @@ public class DocumentTraverserTest {
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
-    List<DocId> docList = pusher.getDocIds();
+    List<Record> docList = pusher.getRecords();
     for (Id id : getIds(docList)) {
       RecordingResponse response = new RecordingResponse();
       traverser.getDocContent(id, null, response);
@@ -243,7 +244,7 @@ public class DocumentTraverserTest {
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
-    List<Id> docList = getIds(pusher.getDocIds());
+    List<Id> docList = getIds(pusher.getRecords());
     assertFalse(docList.isEmpty());
 
     int counter = 0;
@@ -272,7 +273,7 @@ public class DocumentTraverserTest {
     assertTrue(String.valueOf(docEntries.length), docEntries.length > 1);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
-    List<DocId> docList = pusher.getDocIds();
+    List<Record> docList = pusher.getRecords();
     for (Id id : getIds(docList)) {
       RecordingResponse response = new RecordingResponse();
       traverser.getDocContent(id, null, response);
@@ -284,16 +285,6 @@ public class DocumentTraverserTest {
     assertEquals(CHECKPOINT_TIMESTAMP, getQueryTimeString(lastModified));
     assertCheckpointEquals(getCheckpoint(docList),
         CHECKPOINT_TIMESTAMP, "{AAAAAAAA-1000-0000-0000-000000000000}");
-  }
-
-  @Test
-  public void testCheckpointWithoutNextDocument() throws Exception {
-    DocumentTraverser traverser = new DocumentTraverser(options);
-    RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    traverser.getDocIds(CHECKPOINT, pusher);
-    List<DocId> docList = pusher.getDocIds();
-
-    assertEquals(ImmutableList.of(), docList);
   }
 
   @Test
@@ -311,7 +302,7 @@ public class DocumentTraverserTest {
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(CHECKPOINT, pusher);
-    List<Id> docList = getIds(pusher.getDocIds());
+    List<Id> docList = getIds(pusher.getRecords());
 
     RecordingResponse response = new RecordingResponse();
     traverser.getDocContent(docList.get(0), null, response);
