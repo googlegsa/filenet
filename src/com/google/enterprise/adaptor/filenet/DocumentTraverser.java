@@ -89,7 +89,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
           ? "Found no documents to add or update"
           : "Found documents to add or update");
 
-      ArrayList<DocId> docIds = new ArrayList<>();
+      ArrayList<DocIdPusher.Record> records = new ArrayList<>();
       Date timestamp = null;
       Id guid = null; // TODO: Id.ZERO_ID?
       Iterator<?> objects = objectSet.iterator();
@@ -97,11 +97,14 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         Document object = (Document) objects.next();
         timestamp = object.get_DateLastModified();
         guid = object.get_Id(); // TODO: Use the VersionSeries ID.
-        docIds.add(newDocId(guid));
+        records.add(new DocIdPusher.Record.Builder(newDocId(guid)).build());
       }
       if (timestamp != null) {
-        docIds.add(newDocId(new Checkpoint(checkpoint.type, timestamp, guid)));
-        pusher.pushDocIds(docIds);
+        records.add(
+            new DocIdPusher.Record.Builder(
+                newDocId(new Checkpoint(checkpoint.type, timestamp, guid)))
+            .setCrawlImmediately(true).build());
+        pusher.pushRecords(records);
       }
     } catch (EngineRuntimeException e) {
       throw new IOException(e);
@@ -185,7 +188,8 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       Document document = (Document)
           objectStore.fetchObject(ClassNames.DOCUMENT, guid,
               FileUtil.getDocumentPropertyFilter(
-                  options.getIncludedMetadata()));
+                  options.getIncludedMetadata(),
+                  options.getExcludedMetadata()));
 
       logger.log(Level.FINEST, "Add document [ID: {0}]", guid);
       processDocument(guid, newDocId(guid), document, response);
@@ -200,22 +204,10 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     String vsDocId = document.get_VersionSeries().get_Id().toString();
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
 
-    try {
-      ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
-      if (!activeMarkings.isEmpty()) {
-        throw new UnsupportedOperationException(
-            "Document " + vsDocId + " has an active marking set.");
-      }
-    } catch (EngineRuntimeException e) {
-      // TODO(jlacey): The IBM doc suggests this is just a property
-      // filter issue, and we might get a different error if or none
-      // at all if there are no active markings.
-      if (e.getExceptionCode() == ExceptionCode.API_PROPERTY_NOT_IN_CACHE) {
-        logger.log(Level.FINER, "Assuming no active markings: {0}",
-            e.getMessage());
-      } else {
-        throw e;
-      }
+    ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
+    if (!activeMarkings.isEmpty()) {
+      throw new UnsupportedOperationException(
+          "Document " + vsDocId + " has an active marking set.");
     }
     Permissions.Acl permissions =
         new Permissions(document.get_Permissions(), document.get_Owner())
@@ -425,7 +417,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       double contentSize = value.doubleValue();
       if (contentSize > 0) {
         if (contentSize <= 2L * 1024 * 1024 * 1024) {
-          logger.log(Level.FINEST, "{0} : {1}",
+          logger.log(Level.FINEST, "Property {0}: {1}",
               new Object[] {PropertyNames.CONTENT_SIZE, contentSize});
           return true;
         } else {
