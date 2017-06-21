@@ -145,13 +145,14 @@ class ObjectMocks {
    * Returns an ActiveMarking, backed by a Marking with the specified Id
    * and Permissions.
    */
-  public static ActiveMarking mockActiveMarking(String guid,
-      AccessPermissionList perms) {
+  public static ActiveMarking mockActiveMarking(String name,
+      String guid, AccessPermissionList perms) {
     Marking marking = createMock(Marking.class);
     expect(marking.get_Id()).andStubReturn(newId(guid));
     expect(marking.get_Permissions()).andStubReturn(perms);
     ActiveMarking activeMarking = createMock(ActiveMarking.class);
     expect(activeMarking.get_Marking()).andStubReturn(marking);
+    expect(activeMarking.get_PropertyDisplayName()).andStubReturn(name);
     replay(marking, activeMarking);
     return activeMarking;
   }
