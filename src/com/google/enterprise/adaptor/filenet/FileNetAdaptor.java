@@ -17,6 +17,7 @@ package com.google.enterprise.adaptor.filenet;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.US;
 
 import com.google.common.annotations.VisibleForTesting;
