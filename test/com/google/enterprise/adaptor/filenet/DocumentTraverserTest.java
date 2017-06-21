@@ -14,8 +14,11 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import static com.google.enterprise.adaptor.Acl.InheritanceType;
+import static com.google.enterprise.adaptor.filenet.DocumentTraverser.percentEscape;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint.getQueryTimeString;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
+import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockActiveMarking;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.CoreMatchers.startsWith;
@@ -32,6 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher.Record;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.ActiveMarkingListMock;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
@@ -345,6 +349,80 @@ public class DocumentTraverserTest {
         acl.getPermitUsers().isEmpty());
     assertEquals(null, acl.getInheritFrom());
     assertEquals(null, acl.getInheritFromFragment());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testGetDocContent_activeMarkings() throws Exception {
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    String markingId1 = "{AAAAAAAA-0001-0000-0000-000000000000}";
+    String markingId2 = "{AAAAAAAA-0002-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
+        1000d, "text/plain",
+        TestObjectFactory.getPermissions(
+            PermissionSource.SOURCE_DIRECT,
+            PermissionSource.SOURCE_TEMPLATE,
+            PermissionSource.SOURCE_PARENT),
+        new ActiveMarkingListMock(
+            mockActiveMarking("marking1", markingId1,
+                TestObjectFactory.getPermissions(PermissionSource.MARKING)),
+            mockActiveMarking("marking2", markingId2,
+                TestObjectFactory.getPermissions(PermissionSource.MARKING))));
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    RecordingResponse response = new RecordingResponse();
+    traverser.getDocContent(new Id(id), null, response);
+
+    assertEquals(
+        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED,
+            PropertyNames.CONTENT_SIZE, PropertyNames.MIME_TYPE),
+        response.getMetadata().getKeys());
+
+    assertEquals("text/plain", response.getContentType());
+    byte[] actualContent =
+        ((ByteArrayOutputStream) response.getOutputStream()).toByteArray();
+    assertEquals("sample content", new String(actualContent, UTF_8));
+
+    Acl acl = response.getAcl();
+    assertFalse(acl.getPermitUsers().toString(),
+        acl.getPermitUsers().isEmpty());
+    assertEquals(docId, acl.getInheritFrom());
+    assertEquals("TMPL", acl.getInheritFromFragment());
+
+    acl = response.getNamedResources().get("TMPL");
+    assertFalse(acl.getPermitUsers().toString(),
+        acl.getPermitUsers().isEmpty());
+    assertEquals(InheritanceType.CHILD_OVERRIDES, acl.getInheritanceType());
+    assertEquals(docId, acl.getInheritFrom());
+    assertEquals("FLDR", acl.getInheritFromFragment());
+
+    acl = response.getNamedResources().get("FLDR");
+    assertFalse(acl.getPermitUsers().toString(),
+        acl.getPermitUsers().isEmpty());
+    assertEquals(InheritanceType.CHILD_OVERRIDES, acl.getInheritanceType());
+    assertEquals(docId, acl.getInheritFrom());
+    assertEquals(markingFragment(markingId2), acl.getInheritFromFragment());
+
+    acl = response.getNamedResources().get(markingFragment(markingId2));
+    assertFalse(acl.getPermitUsers().toString(),
+        acl.getPermitUsers().isEmpty());
+    assertEquals(InheritanceType.AND_BOTH_PERMIT, acl.getInheritanceType());
+    assertEquals(docId, acl.getInheritFrom());
+    assertEquals(markingFragment(markingId1), acl.getInheritFromFragment());
+
+    acl = response.getNamedResources().get(markingFragment(markingId1));
+    assertFalse(acl.getPermitUsers().toString(),
+        acl.getPermitUsers().isEmpty());
+    assertEquals(InheritanceType.AND_BOTH_PERMIT, acl.getInheritanceType());
+    assertEquals(null, acl.getInheritFrom());
+    assertEquals(null, acl.getInheritFromFragment());
+  }
+
+  private String markingFragment(String id) {
+    return "MARK" + percentEscape(id);
   }
 
   /**

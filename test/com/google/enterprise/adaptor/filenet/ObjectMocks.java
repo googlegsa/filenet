@@ -26,6 +26,7 @@ import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.ActiveMarking
 import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 
 import com.filenet.api.collection.AccessPermissionList;
+import com.filenet.api.collection.ActiveMarkingList;
 import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.VersionStatus;
 import com.filenet.api.core.Document;
@@ -33,6 +34,8 @@ import com.filenet.api.core.ObjectStore;
 import com.filenet.api.core.VersionSeries;
 import com.filenet.api.events.DeletionEvent;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.security.ActiveMarking;
+import com.filenet.api.security.Marking;
 import com.filenet.api.util.Id;
 
 import java.io.ByteArrayInputStream;
@@ -97,10 +100,24 @@ class ObjectMocks {
         null, null, perms);
   }
 
-  /** Gets a Document. */
-  private static Document mockDocument(MockObjectStore objectStore,
+  /**
+   * Gets a Document with ContentSize, MimeType, and Permissions properties.
+   */
+  public static Document mockDocument(MockObjectStore objectStore,
       String guid, String timeStr, boolean isReleasedVersion,
       Double contentSize, String mimeType, AccessPermissionList perms) {
+    return mockDocument(objectStore, guid, timeStr, isReleasedVersion,
+         contentSize, mimeType, perms, new ActiveMarkingListMock());
+  }
+
+  /**
+   * Gets a Document with ContentSize, MimeType, ActiveMarkings, and
+   * Permissions properties.
+   */
+  public static Document mockDocument(MockObjectStore objectStore,
+      String guid, String timeStr, boolean isReleasedVersion,
+      Double contentSize, String mimeType, AccessPermissionList perms,
+      ActiveMarkingList activeMarkings) {
     VersionSeries vs = createMock(VersionSeries.class);
     expect(vs.get_Id()).andStubReturn(newId(guid));
     Document doc = createMock(Document.class);
@@ -118,10 +135,26 @@ class ObjectMocks {
     expect(doc.get_ContentSize()).andStubReturn(contentSize);
     expect(doc.get_MimeType()).andStubReturn(mimeType);
     expect(doc.get_Permissions()).andStubReturn(perms);
-    expect(doc.get_ActiveMarkings()).andStubReturn(new ActiveMarkingListMock());
+    expect(doc.get_ActiveMarkings()).andStubReturn(activeMarkings);
     replay(vs, doc);
     objectStore.addObject(doc);
     return doc;
+  }
+
+  /**
+   * Returns an ActiveMarking, backed by a Marking with the specified Id
+   * and Permissions.
+   */
+  public static ActiveMarking mockActiveMarking(String name,
+      String guid, AccessPermissionList perms) {
+    Marking marking = createMock(Marking.class);
+    expect(marking.get_Id()).andStubReturn(newId(guid));
+    expect(marking.get_Permissions()).andStubReturn(perms);
+    ActiveMarking activeMarking = createMock(ActiveMarking.class);
+    expect(activeMarking.get_Marking()).andStubReturn(marking);
+    expect(activeMarking.get_PropertyDisplayName()).andStubReturn(name);
+    replay(marking, activeMarking);
+    return activeMarking;
   }
 
   public static DeletionEvent mockDeletionEvent(MockObjectStore objectStore,
