@@ -107,7 +107,7 @@ class ObjectMocks {
       String guid, String timeStr, boolean isReleasedVersion,
       Double contentSize, String mimeType, AccessPermissionList perms) {
     return mockDocument(objectStore, guid, timeStr, isReleasedVersion,
-         null, null, perms, new ActiveMarkingListMock());
+         contentSize, mimeType, perms, new ActiveMarkingListMock());
   }
 
   /**
