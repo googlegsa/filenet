@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher.Record;
+import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.ActiveMarkingListMock;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
@@ -197,8 +198,9 @@ public class DocumentTraverserTest {
     traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
     List<Record> docList = pusher.getRecords();
     for (Id id : getIds(docList)) {
+      Request request = new MockRequest(newDocId(id));
       RecordingResponse response = new RecordingResponse();
-      traverser.getDocContent(id, null, response);
+      traverser.getDocContent(id, request, response);
       lastModified = response.getLastModified();
       counter++;
     }
@@ -222,8 +224,9 @@ public class DocumentTraverserTest {
     traverser.getDocIds(CHECKPOINT, pusher);
     List<Record> docList = pusher.getRecords();
     for (Id id : getIds(docList)) {
+      Request request = new MockRequest(newDocId(id));
       RecordingResponse response = new RecordingResponse();
-      traverser.getDocContent(id, null, response);
+      traverser.getDocContent(id, request, response);
       lastModified = response.getLastModified();
       counter++;
     }
@@ -250,8 +253,9 @@ public class DocumentTraverserTest {
     int counter = 0;
     Date prevDate = new Date(0L);
     for (Id id : docList) {
+      Request request = new MockRequest(newDocId(id));
       RecordingResponse response = new RecordingResponse();
-      traverser.getDocContent(id, null, response);
+      traverser.getDocContent(id, request, response);
       Date thisDate = response.getLastModified();
       assertTrue("Previous date " + prevDate + " is after " + thisDate,
           prevDate.compareTo(thisDate) <= 0);
@@ -275,8 +279,9 @@ public class DocumentTraverserTest {
     traverser.getDocIds(CHECKPOINT, pusher);
     List<Record> docList = pusher.getRecords();
     for (Id id : getIds(docList)) {
+      Request request = new MockRequest(newDocId(id));
       RecordingResponse response = new RecordingResponse();
-      traverser.getDocContent(id, null, response);
+      traverser.getDocContent(id, request, response);
       lastModified = response.getLastModified();
       counter++;
     }
@@ -304,8 +309,10 @@ public class DocumentTraverserTest {
     traverser.getDocIds(CHECKPOINT, pusher);
     List<Id> docList = getIds(pusher.getRecords());
 
+    Id id = docList.get(0);
+    Request request = new MockRequest(newDocId(id));
     RecordingResponse response = new RecordingResponse();
-    traverser.getDocContent(docList.get(0), null, response);
+    traverser.getDocContent(id, request, response);
 
     String expectedContent = (expectNotNull) ? "sample content" : "";
     byte[] actualContent =
@@ -325,8 +332,9 @@ public class DocumentTraverserTest {
             PermissionSource.SOURCE_PARENT));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
     RecordingResponse response = new RecordingResponse();
-    traverser.getDocContent(new Id(id), null, response);
+    traverser.getDocContent(new Id(id), request, response);
 
     assertEquals(
         ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED),
@@ -351,6 +359,33 @@ public class DocumentTraverserTest {
     assertEquals(null, acl.getInheritFromFragment());
   }
 
+  @Test
+  public void testGetDocContent_notModified() throws Exception {
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
+        TestObjectFactory.getPermissions(
+            PermissionSource.SOURCE_DIRECT,
+            PermissionSource.SOURCE_TEMPLATE,
+            PermissionSource.SOURCE_PARENT));
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId, new Date());
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    RecordingResponse response = new RecordingResponse(baos);
+    traverser.getDocContent(new Id(id), request, response);
+
+    assertEquals(
+        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED),
+        response.getMetadata().getKeys());
+
+    assertNotNull(response.getAcl());
+    assertFalse(response.getNamedResources().isEmpty());
+    assertEquals(RecordingResponse.State.NO_CONTENT, response.getState());
+    assertEquals(0, baos.size());
+  }
+
   @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
   @Test
   public void testGetDocContent_activeMarkings() throws Exception {
@@ -373,8 +408,9 @@ public class DocumentTraverserTest {
                 TestObjectFactory.getPermissions(PermissionSource.MARKING))));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
     RecordingResponse response = new RecordingResponse();
-    traverser.getDocContent(new Id(id), null, response);
+    traverser.getDocContent(new Id(id), request, response);
 
     assertEquals(
         ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED,

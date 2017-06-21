@@ -201,14 +201,14 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
                   options.getExcludedMetadata()));
 
       logger.log(Level.FINEST, "Add document [ID: {0}]", guid);
-      processDocument(guid, newDocId(guid), document, response);
+      processDocument(guid, newDocId(guid), document, request, response);
     } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
   }
 
   private void processDocument(Id guid, DocId docId, Document document,
-      Response response) throws IOException {
+      Request request, Response response) throws IOException {
     logger.log(Level.FINE, "Fetch document for DocId {0}", guid);
     String vsDocId = document.get_VersionSeries().get_Id().toString();
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
@@ -229,6 +229,16 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     response.setSecure(!options.markAllDocsAsPublic());
 
     setMetadata(document, response);
+
+    // Check for If-Modified-Since. The repository does not change
+    // the last modified time if the ACL or metadata change, so we
+    // always return those, but can skip the content if unchanged.
+    if (request.canRespondWithNoContent(document.get_DateLastModified())) {
+      logger.log(Level.FINE, "Content not modified since last crawl: {0}",
+          guid);
+      response.respondNoContent();
+      return;
+    }
 
     logger.log(Level.FINEST, "Getting content");
     if (hasAllowableSize(guid, document)) {
