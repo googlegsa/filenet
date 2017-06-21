@@ -188,7 +188,8 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       Document document = (Document)
           objectStore.fetchObject(ClassNames.DOCUMENT, guid,
               FileUtil.getDocumentPropertyFilter(
-                  options.getIncludedMetadata()));
+                  options.getIncludedMetadata(),
+                  options.getExcludedMetadata()));
 
       logger.log(Level.FINEST, "Add document [ID: {0}]", guid);
       processDocument(guid, newDocId(guid), document, response);
@@ -203,22 +204,10 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     String vsDocId = document.get_VersionSeries().get_Id().toString();
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
 
-    try {
-      ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
-      if (!activeMarkings.isEmpty()) {
-        throw new UnsupportedOperationException(
-            "Document " + vsDocId + " has an active marking set.");
-      }
-    } catch (EngineRuntimeException e) {
-      // TODO(jlacey): The IBM doc suggests this is just a property
-      // filter issue, and we might get a different error if or none
-      // at all if there are no active markings.
-      if (e.getExceptionCode() == ExceptionCode.API_PROPERTY_NOT_IN_CACHE) {
-        logger.log(Level.FINER, "Assuming no active markings: {0}",
-            e.getMessage());
-      } else {
-        throw e;
-      }
+    ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
+    if (!activeMarkings.isEmpty()) {
+      throw new UnsupportedOperationException(
+          "Document " + vsDocId + " has an active marking set.");
     }
     Permissions.Acl permissions =
         new Permissions(document.get_Permissions(), document.get_Owner())

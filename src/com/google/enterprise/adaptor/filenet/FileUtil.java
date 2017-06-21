@@ -71,10 +71,13 @@ class FileUtil {
 
   /** Creates a default property filter for document. */
   public static PropertyFilter getDocumentPropertyFilter(
-      Set<String> includedMetaNames) {
+      Set<String> includedMetaNames, Set<String> excludedMetaNames) {
     Set<String> filterSet = new HashSet<String>();
-    if (includedMetaNames != null) {
+    if (includedMetaNames.isEmpty()) {
+      return null;
+    } else {
       filterSet.addAll(includedMetaNames);
+      filterSet.removeAll(excludedMetaNames);
     }
     filterSet.add(PropertyNames.ID);
     filterSet.add(PropertyNames.CLASS_DESCRIPTION);
@@ -86,6 +89,7 @@ class FileUtil {
     filterSet.add(PropertyNames.VERSION_SERIES_ID);
     filterSet.add(PropertyNames.RELEASED_VERSION);
     filterSet.add(PropertyNames.OWNER);
+    filterSet.add(PropertyNames.ACTIVE_MARKINGS);
     filterSet.add(PropertyNames.PERMISSIONS);
     filterSet.add(PropertyNames.PERMISSION_TYPE);
     filterSet.add(PropertyNames.PERMISSION_SOURCE);
