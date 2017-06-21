@@ -326,8 +326,12 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   private void processInheritedPermissions(DocId docId,
       ActiveMarkingList activeMarkings, Permissions.Acl permissions,
       Response response) {
-    // Send add request for adding ACLs inherited from parent folders.
     String fragment = null;
+
+    // Send add requests for adding ACLs inherited from ActiveMarkings.
+    // The ActiveMarking ACLs must be ANDed with all the other ACLs.
+    // The GSA supports AND-BOTH-PERMIT only at the root of the ACL
+    // inheritance chain.
     Iterator<?> iterator = (activeMarkings == null)
         ? Collections.emptyIterator() : activeMarkings.iterator();
     while (iterator.hasNext()) {
@@ -346,6 +350,8 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
               fragment, markingAcl});
       response.putNamedResource(fragment, markingAcl);
     }
+
+    // Send add request for adding ACLs inherited from parent folders.
     Acl folderAcl = createAcl(docId, permissions,
         PermissionSource.SOURCE_PARENT, fragment);
     fragment = SEC_FOLDER_POSTFIX;
