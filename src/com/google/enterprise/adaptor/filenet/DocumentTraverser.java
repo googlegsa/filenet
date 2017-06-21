@@ -38,6 +38,8 @@ import com.filenet.api.core.Document;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
+import com.filenet.api.security.ActiveMarking;
+import com.filenet.api.security.Marking;
 import com.filenet.api.util.Id;
 
 import java.io.IOException;
@@ -46,6 +48,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -200,12 +203,9 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     String vsDocId = document.get_VersionSeries().get_Id().toString();
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
 
+    ActiveMarkingList activeMarkings;
     try {
-      ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
-      if (!activeMarkings.isEmpty()) {
-        throw new UnsupportedOperationException(
-            "Document " + vsDocId + " has an active marking set.");
-      }
+      activeMarkings = document.get_ActiveMarkings();
     } catch (EngineRuntimeException e) {
       // TODO(jlacey): The IBM doc suggests this is just a property
       // filter issue, and we might get a different error if or none
@@ -213,6 +213,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       if (e.getExceptionCode() == ExceptionCode.API_PROPERTY_NOT_IN_CACHE) {
         logger.log(Level.FINER, "Assuming no active markings: {0}",
             e.getMessage());
+        activeMarkings = null;
       } else {
         throw e;
       }
@@ -221,7 +222,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         new Permissions(document.get_Permissions(), document.get_Owner())
         .getAcl();
     response.setAcl(getAcl(docId, permissions));
-    processInheritedPermissions(docId, permissions, response);
+    processInheritedPermissions(docId, activeMarkings, permissions, response);
 
     response.setContentType(document.get_MimeType());
     // TODO(jlacey): Use ValidatedUri. Use a percent encoder, or URI's
@@ -274,6 +275,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
             permissions.getDenyGroups(PermissionSource.SOURCE_DIRECT)));
   }
 
+  public static final String SEC_MARKING_POSTFIX = "MARK";
   public static final String SEC_POLICY_POSTFIX = "TMPL";
   public static final String SEC_FOLDER_POSTFIX = "FLDR";
 
@@ -317,11 +319,29 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   // security template in particular, so that SecurityPolicyTraverser can
   // update just the one ACL and not have to rewire the chain?
   private void processInheritedPermissions(DocId docId,
-      Permissions.Acl permissions, Response response) {
+      ActiveMarkingList activeMarkings, Permissions.Acl permissions,
+      Response response) {
     // Send add request for adding ACLs inherited from parent folders.
     String secParentFragment = null;
-    Acl folderAcl =
-        createAcl(docId, permissions, PermissionSource.SOURCE_PARENT, null);
+    Iterator<?> iterator = (activeMarkings == null)
+        ? Collections.emptyIterator() : activeMarkings.iterator();
+    while (iterator.hasNext()) {
+      Marking marking = ((ActiveMarking) iterator.next()).get_Marking();
+      Permissions.Acl markingPerms =
+          new Permissions(marking.get_Permissions()).getAcl();
+      Acl markingAcl = createAcl(docId, secParentFragment,
+          Acl.InheritanceType.AND_BOTH_PERMIT, options.getGlobalNamespace(),
+          markingPerms.getAllowUsers(), markingPerms.getDenyUsers(),
+          markingPerms.getAllowGroups(), markingPerms.getDenyGroups());
+      if (markingAcl != null) {
+        secParentFragment = SEC_MARKING_POSTFIX
+            + marking.get_Id().toString()
+                .replace("{", "%7B").replace("}", "%7D");
+        response.putNamedResource(secParentFragment, markingAcl);
+      }
+    }
+    Acl folderAcl = createAcl(docId, permissions,
+        PermissionSource.SOURCE_PARENT, secParentFragment);
     if (folderAcl == null) {
       logger.log(Level.FINEST,
           "{0} does not have inherited folder permissions", docId);
@@ -348,25 +368,23 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
   private Acl createAcl(DocId docId, Permissions.Acl permissions,
       PermissionSource permSrc, String parentFragment) {
-    Set<String> allowUsers = permissions.getAllowUsers(permSrc);
-    Set<String> denyUsers = permissions.getDenyUsers(permSrc);
-    Set<String> allowGroups = permissions.getAllowGroups(permSrc);
-    Set<String> denyGroups = permissions.getDenyGroups(permSrc);
-    if (allowUsers.isEmpty() && denyUsers.isEmpty()
-        && allowGroups.isEmpty() && denyGroups.isEmpty()) {
-      return null;
-    } else {
-      return createAcl(docId, parentFragment,
-          Acl.InheritanceType.CHILD_OVERRIDES,
-          options.getGlobalNamespace(), allowUsers, denyUsers,
-          allowGroups, denyGroups);
-    }
+    return createAcl(docId, parentFragment,
+        Acl.InheritanceType.CHILD_OVERRIDES,
+        options.getGlobalNamespace(),
+        permissions.getAllowUsers(permSrc),
+        permissions.getDenyUsers(permSrc),
+        permissions.getAllowGroups(permSrc),
+        permissions.getDenyGroups(permSrc));
   }
 
   private Acl createAcl(DocId docId, String parentFragment,
       Acl.InheritanceType inheritanceType, String namespace,
       Set<String> allowUsers, Set<String> denyUsers,
       Set<String> allowGroups, Set<String> denyGroups) {
+    if (allowUsers.isEmpty() && denyUsers.isEmpty()
+        && allowGroups.isEmpty() && denyGroups.isEmpty()) {
+      return null;
+    }
     Acl.Builder builder = new Acl.Builder();
     builder.setEverythingCaseInsensitive();
     builder.setInheritanceType(inheritanceType);
