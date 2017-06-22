@@ -194,11 +194,23 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       ObjectStore objectStore = options.getObjectStore(connection);
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
-      Document document = (Document)
-          objectStore.fetchObject(ClassNames.DOCUMENT, guid,
-              FileUtil.getDocumentPropertyFilter(
-                  options.getIncludedMetadata(),
-                  options.getExcludedMetadata()));
+      Document document;
+      try {
+        document = (Document)
+            objectStore.fetchObject(ClassNames.DOCUMENT, guid,
+                FileUtil.getDocumentPropertyFilter(
+                    options.getIncludedMetadata(),
+                    options.getExcludedMetadata()));
+      } catch (EngineRuntimeException e) {
+        // TODO(bmj): Make sure this is the correct exception.
+        if (e.getExceptionCode() == ExceptionCode.E_OBJECT_NOT_FOUND) {
+          response.respondNotFound();
+          logger.log(Level.FINEST, "Not found [ID: {0}]", guid);
+          return;
+        } else {
+          throw e;
+        }
+      }
 
       logger.log(Level.FINEST, "Add document [ID: {0}]", guid);
       processDocument(guid, newDocId(guid), document, request, response);
