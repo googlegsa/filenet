@@ -369,7 +369,11 @@ public class DocumentTraverserTest {
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     DocId docId = newDocId(new Id(id));
     MockObjectStore os = getObjectStore();
-    mockDocument(os, id, DOCUMENT_TIMESTAMP, true, 1000d, "text/plain");
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
+        TestObjectFactory.getPermissions(
+            PermissionSource.SOURCE_DIRECT,
+            PermissionSource.SOURCE_TEMPLATE,
+            PermissionSource.SOURCE_PARENT));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
     Request request = new MockRequest(docId);
@@ -378,11 +382,9 @@ public class DocumentTraverserTest {
     traverser.getDocContent(new Id(id), request, response);
 
     assertEquals(
-        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED,
-            PropertyNames.CONTENT_SIZE, PropertyNames.MIME_TYPE),
+        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED),
         response.getMetadata().getKeys());
 
-    assertEquals("text/plain", response.getContentType());
     byte[] actualContent = baos.toByteArray();
     assertEquals("sample content", new String(actualContent, UTF_8));
 
@@ -454,7 +456,6 @@ public class DocumentTraverserTest {
         ((ByteArrayOutputStream) response.getOutputStream()).toByteArray();
     assertEquals("sample content", new String(actualContent, UTF_8));
 
-    assertTrue(response.isSecure());
     Acl acl = response.getAcl();
     assertFalse(acl.getPermitUsers().toString(),
         acl.getPermitUsers().isEmpty());

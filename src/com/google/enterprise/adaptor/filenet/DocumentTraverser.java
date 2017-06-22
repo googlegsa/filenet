@@ -212,15 +212,12 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     String vsDocId = document.get_VersionSeries().get_Id().toString();
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
 
-    if (options.markAllDocsAsPublic()) {
-      response.setSecure(false);
-    } else {
+    if (!options.markAllDocsAsPublic()) {
       ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
       Permissions.Acl permissions =
           new Permissions(document.get_Permissions(), document.get_Owner())
           .getAcl();
       processPermissions(docId, activeMarkings, permissions, response);
-      response.setSecure(true);
     }
 
     response.setContentType(document.get_MimeType());
@@ -287,9 +284,6 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     return list;
   }
 
-  // TODO(jlacey): Should we always include the full ACL chain, and the
-  // security template in particular, so that SecurityPolicyTraverser can
-  // update just the one ACL and not have to rewire the chain?
   private void processPermissions(DocId docId,
       ActiveMarkingList activeMarkings, Permissions.Acl permissions,
       Response response) {
