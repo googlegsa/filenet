@@ -109,7 +109,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
       InterruptedException {
     pusher.pushRecords(Arrays.asList(
         new Record.Builder(newDocId(new Checkpoint("document", null, null)))
-            .setCrawlImmediately(true).build()));
+            .setCrawlImmediately(true).setCrawlOnce(true).build()));
   }
 
   @Override
@@ -128,7 +128,9 @@ public class FileNetAdaptor extends AbstractAdaptor {
         switch (checkpoint.type) {
           case "document":
             documentTraverser.getDocIds(checkpoint, context.getDocIdPusher());
+            resp.setCrawlOnce(true); // TODO(jlacey): Required by the library.
             resp.setNoIndex(true);
+            resp.setSecure(true); // Just to be paranoid.
             resp.setContentType("text/plain");
             resp.getOutputStream().write(" ".getBytes(UTF_8));
             break;

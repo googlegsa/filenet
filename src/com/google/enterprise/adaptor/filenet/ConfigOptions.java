@@ -146,9 +146,9 @@ class ConfigOptions {
 
     try {
       maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
-      if (maxFeedUrls < 2) {
+      if (maxFeedUrls < 3) {
         throw new InvalidConfigurationException(
-            "feed.maxUrls must be greater than 1: " + maxFeedUrls);
+            "feed.maxUrls must be greater than 2: " + maxFeedUrls);
       }
     } catch (NumberFormatException e) {
       throw new InvalidConfigurationException(

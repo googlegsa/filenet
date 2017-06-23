@@ -460,7 +460,7 @@ public class FileNetAdaptorTest {
   public void testInit_maxFeedUrls_tooSmall() throws Exception {
     config.overrideKey("feed.maxUrls", "1");
     thrown.expect(InvalidConfigurationException.class);
-    thrown.expectMessage("feed.maxUrls must be greater than 1");
+    thrown.expectMessage("feed.maxUrls must be greater than 2");
     adaptor.init(context);
   }
 
@@ -473,7 +473,7 @@ public class FileNetAdaptorTest {
 
     assertEquals(ImmutableList.of(
         new Record.Builder(newDocId(new Checkpoint("type=document")))
-            .setCrawlImmediately(true).build()),
+            .setCrawlImmediately(true).setCrawlOnce(true).build()),
         pusher.getRecords());
   }
 
@@ -527,6 +527,8 @@ public class FileNetAdaptorTest {
     adaptor.getDocContent(
         new MockRequest(newDocId(new Checkpoint("type=document"))),
         response);
+    assertTrue(response.isCrawlOnce());
+    assertTrue(response.isNoIndex());
 
     List<Record> actual = getContextPusher().getRecords();
     // Assert that the pushed DocIds match.
@@ -563,6 +565,8 @@ public class FileNetAdaptorTest {
     RecordingResponse response = new RecordingResponse();
     adaptor.getDocContent(
         new MockRequest(newDocId(startCheckpoint)), response);
+    assertTrue(response.isCrawlOnce());
+    assertTrue(response.isNoIndex());
 
     List<Record> actual = getContextPusher().getRecords();
     // Assert that the pushed DocIds match.
@@ -610,6 +614,8 @@ public class FileNetAdaptorTest {
     adaptor.getDocContent(
         new MockRequest(newDocId("{AAAAAAAA-0000-0000-0000-000000000004}")),
         response);
+    assertFalse(response.isCrawlOnce());
+    assertFalse(response.isNoIndex());
     assertEquals("text/plain", response.getContentType());
     assertEquals("Hello from document {AAAAAAAA-0000-0000-0000-000000000004}",
         baos.toString("UTF-8"));
