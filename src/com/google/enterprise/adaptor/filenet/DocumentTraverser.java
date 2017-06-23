@@ -48,7 +48,6 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -213,12 +212,13 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     String vsDocId = document.get_VersionSeries().get_Id().toString();
     logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
 
-    ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
-    Permissions.Acl permissions =
-        new Permissions(document.get_Permissions(), document.get_Owner())
-        .getAcl();
-    response.setAcl(getAcl(docId, permissions));
-    processInheritedPermissions(docId, activeMarkings, permissions, response);
+    if (!options.markAllDocsAsPublic()) {
+      ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
+      Permissions.Acl permissions =
+          new Permissions(document.get_Permissions(), document.get_Owner())
+          .getAcl();
+      processPermissions(docId, activeMarkings, permissions, response);
+    }
 
     response.setContentType(document.get_MimeType());
     // TODO(jlacey): Use ValidatedUri. Use a percent encoder, or URI's
@@ -226,7 +226,6 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     response.setDisplayUrl(
         URI.create(options.getDisplayUrl() + percentEscape(vsDocId)));
     response.setLastModified(document.get_DateLastModified());
-    response.setSecure(!options.markAllDocsAsPublic());
 
     setMetadata(document, response);
 
@@ -263,44 +262,9 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     }
   }
 
-  private Acl getAcl(DocId docId, Permissions.Acl permissions) {
-    return createAcl(docId, getParentFragment(permissions),
-        Acl.InheritanceType.LEAF_NODE,
-        union(
-            permissions.getAllowUsers(PermissionSource.SOURCE_DEFAULT),
-            permissions.getAllowUsers(PermissionSource.SOURCE_DIRECT)),
-        union(
-            permissions.getDenyUsers(PermissionSource.SOURCE_DEFAULT),
-            permissions.getDenyUsers(PermissionSource.SOURCE_DIRECT)),
-        union(
-            permissions.getAllowGroups(PermissionSource.SOURCE_DEFAULT),
-            permissions.getAllowGroups(PermissionSource.SOURCE_DIRECT)),
-        union(
-            permissions.getDenyGroups(PermissionSource.SOURCE_DEFAULT),
-            permissions.getDenyGroups(PermissionSource.SOURCE_DIRECT)));
-  }
-
   public static final String SEC_MARKING_POSTFIX = "MARK";
   public static final String SEC_POLICY_POSTFIX = "TMPL";
   public static final String SEC_FOLDER_POSTFIX = "FLDR";
-
-  private String getParentFragment(Permissions.Acl permissions) {
-    if (hasPermissions(permissions, PermissionSource.SOURCE_TEMPLATE)) {
-      return SEC_POLICY_POSTFIX;
-    } else if (hasPermissions(permissions, PermissionSource.SOURCE_PARENT)) {
-      return SEC_FOLDER_POSTFIX;
-    } else {
-      return null;
-    }
-  }
-
-  private boolean hasPermissions(Permissions.Acl permissions,
-      PermissionSource permSrc) {
-    return !(permissions.getAllowUsers(permSrc).isEmpty()
-        && permissions.getDenyUsers(permSrc).isEmpty()
-        && permissions.getAllowGroups(permSrc).isEmpty()
-        && permissions.getDenyGroups(permSrc).isEmpty());
-  }
 
   private List<UserPrincipal> getUserPrincipals(Set<String> names,
       String namespace) {
@@ -320,10 +284,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     return list;
   }
 
-  // TODO(jlacey): Should we always include the full ACL chain, and the
-  // security template in particular, so that SecurityPolicyTraverser can
-  // update just the one ACL and not have to rewire the chain?
-  private void processInheritedPermissions(DocId docId,
+  private void processPermissions(DocId docId,
       ActiveMarkingList activeMarkings, Permissions.Acl permissions,
       Response response) {
     String fragment = null;
@@ -366,6 +327,24 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         "Create ACL for security template {0}#{1}: {2}",
         new Object[] {docId, fragment, secAcl});
     response.putNamedResource(fragment, secAcl);
+
+    // Set the direct and default document ACL.
+    Acl docAcl = createAcl(docId, fragment, Acl.InheritanceType.LEAF_NODE,
+        union(
+            permissions.getAllowUsers(PermissionSource.SOURCE_DEFAULT),
+            permissions.getAllowUsers(PermissionSource.SOURCE_DIRECT)),
+        union(
+            permissions.getDenyUsers(PermissionSource.SOURCE_DEFAULT),
+            permissions.getDenyUsers(PermissionSource.SOURCE_DIRECT)),
+        union(
+            permissions.getAllowGroups(PermissionSource.SOURCE_DEFAULT),
+            permissions.getAllowGroups(PermissionSource.SOURCE_DIRECT)),
+        union(
+            permissions.getDenyGroups(PermissionSource.SOURCE_DEFAULT),
+            permissions.getDenyGroups(PermissionSource.SOURCE_DIRECT)));
+    logger.log(Level.FINEST, "Create ACL for direct permissions of {0}: {1}",
+        new Object[] {docId, docAcl});
+    response.setAcl(docAcl);
   }
 
   private Acl createAcl(DocId docId, Permissions.Acl permissions,

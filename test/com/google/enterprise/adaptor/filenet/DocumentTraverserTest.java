@@ -25,6 +25,7 @@ import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -357,6 +358,39 @@ public class DocumentTraverserTest {
         acl.getPermitUsers().isEmpty());
     assertEquals(null, acl.getInheritFrom());
     assertEquals(null, acl.getInheritFromFragment());
+  }
+
+  @Test
+  public void testGetDocContent_markAllDocsPublic() throws Exception {
+    options = TestObjectFactory.newConfigOptions(
+        ImmutableMap.<String, String>of (
+            "adaptor.markAllDocsAsPublic", "true"));
+
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
+        TestObjectFactory.getPermissions(
+            PermissionSource.SOURCE_DIRECT,
+            PermissionSource.SOURCE_TEMPLATE,
+            PermissionSource.SOURCE_PARENT));
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    RecordingResponse response = new RecordingResponse(baos);
+    traverser.getDocContent(new Id(id), request, response);
+
+    assertEquals(
+        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED),
+        response.getMetadata().getKeys());
+
+    byte[] actualContent = baos.toByteArray();
+    assertEquals("sample content", new String(actualContent, UTF_8));
+
+    assertFalse(response.isSecure());
+    assertNull(response.getAcl());
+    assertTrue(response.getNamedResources().isEmpty());
   }
 
   @Test
