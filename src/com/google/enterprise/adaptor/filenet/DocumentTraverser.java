@@ -49,10 +49,10 @@ import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -377,35 +377,20 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   private void setMetadata(Document document, Response response) {
     IDocumentProperties properties =
         options.getObjectFactory().getDocumentProperties(document);
-    for (String name : getPropertyNames(properties)) {
-      ArrayList<String> list = new ArrayList<>();
-      properties.getProperty(name, list);
-      for (String value : list) {
-        response.addMetadata(name, value);
-      }
-    }
-  }
-
-  private Set<String> getPropertyNames(IDocumentProperties properties)  {
-    Set<String> names = new HashSet<String>();
-    for (String property : properties.getPropertyNames()) {
-      if (property != null) {
-        if (options.getIncludedMetadata().size() != 0) {
-          // includeMeta - excludeMeta
-          if ((!options.getExcludedMetadata().contains(property)
-              && options.getIncludedMetadata().contains(property))) {
-            names.add(property);
-          }
-        } else {
-          // superSet - excludeMeta
-          if ((!options.getExcludedMetadata().contains(property))) {
-            names.add(property);
-          }
+    Set<String> names = new TreeSet<>();
+    for (String name : properties.getPropertyNames()) {
+      if ((options.getIncludedMetadata().isEmpty()
+              || options.getIncludedMetadata().contains(name))
+          && !options.getExcludedMetadata().contains(name)) {
+        ArrayList<String> list = new ArrayList<>();
+        properties.getProperty(name, list);
+        for (String value : list) {
+          response.addMetadata(name, value);
+          names.add(name);
         }
       }
     }
-    logger.log(Level.FINEST, "Property names: {0}", properties);
-    return names;
+    logger.log(Level.FINEST, "Property names: {0}", names);
   }
 
   private boolean hasAllowableSize(Id guid, Document document) {

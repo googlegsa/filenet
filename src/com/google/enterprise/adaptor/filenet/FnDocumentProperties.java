@@ -14,12 +14,6 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-import com.filenet.api.collection.BooleanList;
-import com.filenet.api.collection.DateTimeList;
-import com.filenet.api.collection.Float64List;
-import com.filenet.api.collection.IdList;
-import com.filenet.api.collection.Integer32List;
-import com.filenet.api.collection.StringList;
 import com.filenet.api.core.Document;
 import com.filenet.api.property.Properties;
 import com.filenet.api.property.Property;
@@ -40,7 +34,6 @@ import com.filenet.api.util.Id;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,70 +76,58 @@ class FnDocumentProperties implements IDocumentProperties {
       return;
     }
     if (prop instanceof PropertyString) {
-      getStringValue(name, prop, list);
+      getValue(prop.getStringValue(), list);
     } else if (prop instanceof PropertyStringList) {
-      getStringListValue(name, prop, list);
+      getListValue(prop.getStringListValue(), list);
     } else if (prop instanceof PropertyBoolean) {
-      getBooleanValue(name, prop, list);
+      getValue(prop.getBooleanValue(), list);
     } else if (prop instanceof PropertyBooleanList) {
-      getBooleanListValue(name, prop, list);
+      getListValue(prop.getBooleanListValue(), list);
     } else if (prop instanceof PropertyDateTime) {
-      getDateValue(name, prop, list);
+      getDateValue(prop.getDateTimeValue(), list);
     } else if (prop instanceof PropertyDateTimeList) {
-      getDateListValue(name, prop, list);
+      getDateListValue(prop.getDateTimeListValue(), list);
     } else if (prop instanceof PropertyFloat64) {
-      getDoubleValue(name, prop, list);
+      getValue(prop.getFloat64Value(), list);
     } else if (prop instanceof PropertyFloat64List) {
-      getDoubleListValue(name, prop, list);
+      getListValue(prop.getFloat64ListValue(), list);
     } else if (prop instanceof PropertyInteger32) {
-      getLongValue(name, prop, list);
+      getValue(prop.getInteger32Value(), list);
     } else if (prop instanceof PropertyInteger32List) {
-      getLongListValue(name, prop, list);
+      getListValue(prop.getInteger32ListValue(), list);
     } else if (prop instanceof PropertyId) {
-      getGuidValue(name, prop, list);
+      getGuidValue(prop.getIdValue(), list);
     } else if (prop instanceof PropertyIdList) {
-      getGuidListValue(name, prop, list);
+      getGuidListValue(prop.getIdListValue(), list);
     } else {
       logger.log(Level.FINEST, "Property type is not supported: {0}",
           prop.getClass().getName());
     }
   }
 
-  private void getStringValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    String val = prop.getStringValue();
+  private void getValue(Object val, List<String> valuesList) {
     if (val != null) {
       valuesList.add(val.toString());
     }
   }
 
-  private void getStringListValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    StringList slist = prop.getStringListValue();
-    Iterator<?> iter = slist.iterator();
-    while (iter.hasNext()) {
-      String val = (String) iter.next();
+  private void getListValue(List<?> values, List<String> valuesList) {
+    for (Object val : values) {
       if (val != null) {
         valuesList.add(val.toString());
       }
     }
   }
 
-  private void getGuidValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    Id val = prop.getIdValue();
+  private void getGuidValue(Id val, List<String> valuesList) {
     if (val != null) {
       String id = val.toString();
       valuesList.add(id.substring(1, id.length() - 1));
     }
   }
 
-  private void getGuidListValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    IdList idList = prop.getIdListValue();
-    Iterator<?> iter = idList.iterator();
-    while (iter.hasNext()) {
-      Id val = (Id) iter.next();
+  private void getGuidListValue(List<?> values, List<String> valuesList) {
+    for (Object val : values) {
       if (val != null) {
         String id = val.toString();
         valuesList.add(id.substring(1, id.length() - 1));
@@ -154,49 +135,7 @@ class FnDocumentProperties implements IDocumentProperties {
     }
   }
 
-  private void getLongValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    Integer val = prop.getInteger32Value();
-    if (val != null) {
-      valuesList.add(val.toString());
-    }
-  }
-
-  private void getLongListValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    Integer32List int32List = prop.getInteger32ListValue();
-    Iterator<?> iter = int32List.iterator();
-    while (iter.hasNext()) {
-      Integer val = (Integer) iter.next();
-      if (val != null) {
-        valuesList.add(val.toString());
-      }
-    }
-  }
-
-  private void getDoubleValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    Double val = prop.getFloat64Value();
-    if (val != null) {
-      valuesList.add(val.toString());
-    }
-  }
-
-  private void getDoubleListValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    Float64List float64List = prop.getFloat64ListValue();
-    Iterator<?> iter = float64List.iterator();
-    while (iter.hasNext()) {
-      Double val = (Double) iter.next();
-      if (val != null) {
-        valuesList.add(val.toString());
-      }
-    }
-  }
-
-  private void getDateValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    Date val = prop.getDateTimeValue();
+  private void getDateValue(Date val, List<String> valuesList) {
     if (val != null) {
       Calendar cal = Calendar.getInstance();
       cal.setTime(val);
@@ -204,36 +143,12 @@ class FnDocumentProperties implements IDocumentProperties {
     }
   }
 
-  private void getDateListValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    DateTimeList dtList = prop.getDateTimeListValue();
-    Iterator<?> iter = dtList.iterator();
-    while (iter.hasNext()) {
-      Date val = (Date) iter.next();
+  private void getDateListValue(List<?> values, List<String> valuesList) {
+    for (Object val : values) {
       if (val != null) {
         Calendar cal = Calendar.getInstance();
-        cal.setTime(val);
+        cal.setTime((Date) val);
         valuesList.add(/*TODO: ISO 8601*/val.toString());
-      }
-    }
-  }
-
-  private void getBooleanValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    Boolean val = prop.getBooleanValue();
-    if (val != null) {
-      valuesList.add(val.toString());
-    }
-  }
-
-  private void getBooleanListValue(String propertyName, Property prop,
-      List<String> valuesList) {
-    BooleanList booleanList = prop.getBooleanListValue();
-    Iterator<?> iter = booleanList.iterator();
-    while (iter.hasNext()) {
-      Boolean val = (Boolean) iter.next();
-      if (val != null) {
-        valuesList.add(val.toString());
       }
     }
   }
