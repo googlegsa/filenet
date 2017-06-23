@@ -23,8 +23,6 @@ import com.filenet.api.collection.StringList;
 import com.filenet.api.core.Document;
 import com.filenet.api.property.Properties;
 import com.filenet.api.property.Property;
-import com.filenet.api.property.PropertyBinary;
-import com.filenet.api.property.PropertyBinaryList;
 import com.filenet.api.property.PropertyBoolean;
 import com.filenet.api.property.PropertyBooleanList;
 import com.filenet.api.property.PropertyDateTime;
@@ -78,293 +76,165 @@ class FnDocumentProperties implements IDocumentProperties {
 
   @Override
   public void getProperty(String name, List<String> list) {
+    logger.log(Level.FINEST, "Getting property: [{0}]", name);
     Property prop = metas.get(name);
     if (prop == null) {
       logger.log(Level.FINEST, "Property not found: {0}", name);
       return;
     }
-    if (prop instanceof PropertyString
-        || prop instanceof PropertyStringList) {
-      logger.log(Level.FINEST, "Getting String property: [{0}]", name);
-      getPropertyStringValue(name, list);
-    } else if (prop instanceof PropertyBinary
-        || prop instanceof PropertyBinaryList) {
-      logger.log(Level.FINEST, "Binary property [{0}] is not supported.", name);
-    } else if (prop instanceof PropertyBoolean
-        || prop instanceof PropertyBooleanList) {
-      logger.log(Level.FINEST, "Getting Boolean property: [{0}]", name);
-      getPropertyBooleanValue(name, list);
-    } else if (prop instanceof PropertyDateTime
-        || prop instanceof PropertyDateTimeList) {
-      logger.log(Level.FINEST, "Getting Date property: [{0}]", name);
-      getPropertyDateValue(name, list);
-    } else if (prop instanceof PropertyFloat64
-        || prop instanceof PropertyFloat64List) {
-      logger.log(Level.FINEST, "Getting Double/Float property: [{0}]", name);
-      getPropertyDoubleValue(name, list);
-    } else if (prop instanceof PropertyInteger32
-        || prop instanceof PropertyInteger32List) {
-      logger.log(Level.FINEST, "Getting Integer/Long property: [{0}]", name);
-      getPropertyLongValue(name, list);
-    } else if (prop instanceof PropertyId
-        || prop instanceof PropertyIdList) {
-      logger.log(Level.FINEST, "Getting Id property: [{0}]", name);
-      getPropertyGuidValue(name, list);
+    if (prop instanceof PropertyString) {
+      getStringValue(name, prop, list);
+    } else if (prop instanceof PropertyStringList) {
+      getStringListValue(name, prop, list);
+    } else if (prop instanceof PropertyBoolean) {
+      getBooleanValue(name, prop, list);
+    } else if (prop instanceof PropertyBooleanList) {
+      getBooleanListValue(name, prop, list);
+    } else if (prop instanceof PropertyDateTime) {
+      getDateValue(name, prop, list);
+    } else if (prop instanceof PropertyDateTimeList) {
+      getDateListValue(name, prop, list);
+    } else if (prop instanceof PropertyFloat64) {
+      getDoubleValue(name, prop, list);
+    } else if (prop instanceof PropertyFloat64List) {
+      getDoubleListValue(name, prop, list);
+    } else if (prop instanceof PropertyInteger32) {
+      getLongValue(name, prop, list);
+    } else if (prop instanceof PropertyInteger32List) {
+      getLongListValue(name, prop, list);
+    } else if (prop instanceof PropertyId) {
+      getGuidValue(name, prop, list);
+    } else if (prop instanceof PropertyIdList) {
+      getGuidListValue(name, prop, list);
     } else {
-      logger.log(Level.FINEST, "Property type for {0} is not determined: ",
+      logger.log(Level.FINEST, "Property type is not supported: {0}",
           prop.getClass().getName());
     }
   }
 
-  /**
-   * Fetches the String type metadata from FileNet. Responsible for
-   * distinguishing between single-valued and multi-valued metadata. If the
-   * value fetched from FileNet is of instance type List then it is
-   * multi-valued else it is single-valued.
-   */
-  private void getPropertyStringValue(String propertyName,
+  private void getStringValue(String propertyName, Property prop,
       List<String> valuesList) {
-    Property prop = metas.get(propertyName);
-    if (prop == null) {
-      logger.log(Level.FINEST, "{0} property is null", propertyName);
-      return;
-    }
-    if (prop instanceof PropertyString) {
-      String val = prop.getStringValue();
-      if (val != null) {
-        valuesList.add(val.toString());
-      } else {
-        logger.log(Level.FINEST,
-            "{0} property [PropertyString] contains NULL value", propertyName);
-      }
-    } else if (prop instanceof PropertyStringList) {
-      StringList slist = prop.getStringListValue();
-      Iterator<?> iter = slist.iterator();
-      while (iter.hasNext()) {
-        String val = (String) iter.next();
-        if (val != null) {
-          valuesList.add(val.toString());
-        } else {
-          logger.log(Level.FINEST,
-              "{0} property [PropertyStringList] contains NULL value",
-              propertyName);
-        }
-      }
-    } else {
-      throw new /*TODO*/ RuntimeException("Invalid data type: "
-          + propertyName + " property is not a String type");
+    String val = prop.getStringValue();
+    if (val != null) {
+      valuesList.add(val.toString());
     }
   }
 
-  /**
-   * Fetches the GUID type metadata from FileNet. Responsible for
-   * distinguishing between single-valued and multi-valued metadata. If the
-   * value fetched from FileNet is of instance type List then it is
-   * multi-valued else it is single-valued.
-   */
-  private void getPropertyGuidValue(String propertyName,
+  private void getStringListValue(String propertyName, Property prop,
       List<String> valuesList) {
-    Property prop = metas.get(propertyName);
-    if (prop == null) {
-      logger.log(Level.FINEST, "{0} property is null", propertyName);
-      return;
+    StringList slist = prop.getStringListValue();
+    Iterator<?> iter = slist.iterator();
+    while (iter.hasNext()) {
+      String val = (String) iter.next();
+      if (val != null) {
+        valuesList.add(val.toString());
+      }
     }
-    if (prop instanceof PropertyId) {
-      Id val = prop.getIdValue();
+  }
+
+  private void getGuidValue(String propertyName, Property prop,
+      List<String> valuesList) {
+    Id val = prop.getIdValue();
+    if (val != null) {
+      String id = val.toString();
+      valuesList.add(id.substring(1, id.length() - 1));
+    }
+  }
+
+  private void getGuidListValue(String propertyName, Property prop,
+      List<String> valuesList) {
+    IdList idList = prop.getIdListValue();
+    Iterator<?> iter = idList.iterator();
+    while (iter.hasNext()) {
+      Id val = (Id) iter.next();
       if (val != null) {
         String id = val.toString();
         valuesList.add(id.substring(1, id.length() - 1));
-      } else {
-        logger.log(Level.FINEST,
-            "{0} property [PropertyId] contains NULL value", propertyName);
       }
-    } else if (prop instanceof PropertyIdList) {
-      IdList idList = prop.getIdListValue();
-      Iterator<?> iter = idList.iterator();
-      while (iter.hasNext()) {
-        Id val = (Id) iter.next();
-        if (val != null) {
-          // Whenever the ID is retrieved from FileNet, it comes with
-          // "{" and "}" surrounded and ID is in between these curly braces.
-          // FileNet connector needs ID without curly braces.  Thus removing
-          // the curly braces.
-          String id = val.toString();
-          valuesList.add(id.substring(1, id.length() - 1));
-        } else {
-          logger.log(Level.FINEST,
-              "{0} property [PropertyIdList] contains NULL value",
-              propertyName);
-        }
-      }
-    } else {
-      throw new /*TODO*/ RuntimeException("Invalid data type: "
-          + propertyName + " property is not a PropertyId type");
     }
   }
 
-  /**
-   * Fetches the Integer type metadata from FileNet. Responsible for
-   * distinguishing between single-valued and multi-valued metadata. If the
-   * value fetched from FileNet is of instance type List then it is
-   * multi-valued else it is single-valued.
-   */
-  private void getPropertyLongValue(String propertyName,
+  private void getLongValue(String propertyName, Property prop,
       List<String> valuesList) {
-    Property prop = metas.get(propertyName);
-    if (prop == null) {
-      logger.log(Level.FINEST, "{0} property is null", propertyName);
-      return;
+    Integer val = prop.getInteger32Value();
+    if (val != null) {
+      valuesList.add(val.toString());
     }
-    if (prop instanceof PropertyInteger32) {
-      Integer val = prop.getInteger32Value();
+  }
+
+  private void getLongListValue(String propertyName, Property prop,
+      List<String> valuesList) {
+    Integer32List int32List = prop.getInteger32ListValue();
+    Iterator<?> iter = int32List.iterator();
+    while (iter.hasNext()) {
+      Integer val = (Integer) iter.next();
       if (val != null) {
         valuesList.add(val.toString());
-      } else {
-        logger.log(Level.FINEST,
-            "{0} property [PropertyInteger32] contains NULL value",
-            propertyName);
       }
-    } else if (prop instanceof PropertyInteger32List) {
-      Integer32List int32List = prop.getInteger32ListValue();
-      Iterator<?> iter = int32List.iterator();
-      while (iter.hasNext()) {
-        Integer val = (Integer) iter.next();
-        if (val != null) {
-          valuesList.add(val.toString());
-        } else {
-          logger.log(Level.FINEST,
-              "{0} property [PropertyInteger32List] contains NULL value",
-              propertyName);
-        }
-      }
-    } else {
-      throw new /*TODO*/ RuntimeException("Invalid data type: "
-          + propertyName + " property is not an Integer32 or Long type");
     }
   }
 
-  /**
-   * Fetches the Double/Float type metadata from FileNet. Responsible for
-   * distinguishing between single-valued and multi-valued metadata. If the
-   * value fetched from FileNet is of instance type List then it is
-   * multi-valued else it is single-valued.
-   */
-  private void getPropertyDoubleValue(String propertyName,
+  private void getDoubleValue(String propertyName, Property prop,
       List<String> valuesList) {
-    Property prop = metas.get(propertyName);
-    if (prop == null) {
-      logger.log(Level.FINEST, "{0} property is null", propertyName);
-      return;
+    Double val = prop.getFloat64Value();
+    if (val != null) {
+      valuesList.add(val.toString());
     }
-    if (prop instanceof PropertyFloat64) {
-      Double val = prop.getFloat64Value();
+  }
+
+  private void getDoubleListValue(String propertyName, Property prop,
+      List<String> valuesList) {
+    Float64List float64List = prop.getFloat64ListValue();
+    Iterator<?> iter = float64List.iterator();
+    while (iter.hasNext()) {
+      Double val = (Double) iter.next();
       if (val != null) {
         valuesList.add(val.toString());
-      } else {
-        logger.log(Level.FINEST,
-            "{0} property [PropertyFloat64] contains NULL value", propertyName);
       }
-    } else if (prop instanceof PropertyFloat64List) {
-      Float64List float64List = prop.getFloat64ListValue();
-      Iterator<?> iter = float64List.iterator();
-      while (iter.hasNext()) {
-        Double val = (Double) iter.next();
-        if (val != null) {
-          valuesList.add(val.toString());
-        } else {
-          logger.log(Level.FINEST,
-              "{0} property [PropertyFloat64List] contains NULL value",
-              propertyName);
-        }
-      }
-    } else {
-      throw new /*TODO*/ RuntimeException("Invalid data type: "
-          + propertyName + " property is not a Double type");
     }
   }
 
-  /**
-   * Fetches the Date type metadata from FileNet. Responsible for
-   * distinguishing between single-valued and multi-valued metadata. If the
-   * value fetched from FileNet is of instance type List then it is
-   * multi-valued else it is single-valued.
-   */
-  private void getPropertyDateValue(String propertyName,
+  private void getDateValue(String propertyName, Property prop,
       List<String> valuesList) {
-    Property prop = metas.get(propertyName);
-    if (prop == null) {
-      logger.log(Level.FINEST, "{0} property is null", propertyName);
-      return;
+    Date val = prop.getDateTimeValue();
+    if (val != null) {
+      Calendar cal = Calendar.getInstance();
+      cal.setTime(val);
+      valuesList.add(/*TODO: ISO 8601*/val.toString());
     }
-    if (prop instanceof PropertyDateTime) {
-      Date val = prop.getDateTimeValue();
+  }
+
+  private void getDateListValue(String propertyName, Property prop,
+      List<String> valuesList) {
+    DateTimeList dtList = prop.getDateTimeListValue();
+    Iterator<?> iter = dtList.iterator();
+    while (iter.hasNext()) {
+      Date val = (Date) iter.next();
       if (val != null) {
         Calendar cal = Calendar.getInstance();
         cal.setTime(val);
         valuesList.add(/*TODO: ISO 8601*/val.toString());
-      } else {
-        logger.log(Level.FINEST,
-            "{0} property [PropertyDateTime] contains NULL value",
-            propertyName);
       }
-    } else if (prop instanceof PropertyDateTimeList) {
-      DateTimeList dtList = prop.getDateTimeListValue();
-      Iterator<?> iter = dtList.iterator();
-      while (iter.hasNext()) {
-        Date val = (Date) iter.next();
-        if (val != null) {
-          Calendar cal = Calendar.getInstance();
-          cal.setTime(val);
-          valuesList.add(/*TODO: ISO 8601*/val.toString());
-        } else {
-          logger.log(Level.FINEST,
-              "{0} property [PropertyDateTimeList] contains NULL value",
-              propertyName);
-        }
-      }
-    } else {
-      throw new /*TODO*/ RuntimeException("Invalid data type: "
-          + propertyName + " property is not a Date type");
     }
   }
 
-  /**
-   * Fetches the Boolean type metadata from FileNet. Responsible for
-   * distinguishing between single-valued and multi-valued metadata. If the
-   * value fetched from FileNet is of instance type List then it is
-   * multi-valued else it is single-valued.
-   */
-  private void getPropertyBooleanValue(String propertyName,
+  private void getBooleanValue(String propertyName, Property prop,
       List<String> valuesList) {
-    Property prop = metas.get(propertyName);
-    if (prop == null) {
-      logger.log(Level.FINEST, "{0} property is null", propertyName);
-      return;
+    Boolean val = prop.getBooleanValue();
+    if (val != null) {
+      valuesList.add(val.toString());
     }
-    if (prop instanceof PropertyBoolean) {
-      Boolean val = prop.getBooleanValue();
+  }
+
+  private void getBooleanListValue(String propertyName, Property prop,
+      List<String> valuesList) {
+    BooleanList booleanList = prop.getBooleanListValue();
+    Iterator<?> iter = booleanList.iterator();
+    while (iter.hasNext()) {
+      Boolean val = (Boolean) iter.next();
       if (val != null) {
         valuesList.add(val.toString());
-      } else {
-        logger.log(Level.FINEST,
-            "{0} property [PropertyBoolean] contains NULL value", propertyName);
       }
-    } else if (prop instanceof PropertyBooleanList) {
-      BooleanList booleanList = prop.getBooleanListValue();
-      Iterator<?> iter = booleanList.iterator();
-      while (iter.hasNext()) {
-        Boolean val = (Boolean) iter.next();
-        if (val != null) {
-          valuesList.add(val.toString());
-        } else {
-          logger.log(Level.FINEST,
-              "{0} property [PropertyBooleanList] contains NULL value",
-              propertyName);
-        }
-      }
-    } else {
-      throw new /*TODO*/ RuntimeException("Invalid data type: "
-          + propertyName + " property is not a Boolean type");
     }
   }
 }
