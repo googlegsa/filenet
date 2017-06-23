@@ -386,8 +386,6 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         properties.getProperty(name, list);
         for (String value : list) {
           response.addMetadata(name, value);
-        }
-        if (!list.isEmpty()) {
           names.add(name);
         }
       }
