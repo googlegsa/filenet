@@ -128,7 +128,9 @@ public class FileNetAdaptor extends AbstractAdaptor {
         switch (checkpoint.type) {
           case "document":
             documentTraverser.getDocIds(checkpoint, context.getDocIdPusher());
+            resp.setCrawlOnce(true);
             resp.setNoIndex(true);
+            resp.setSecure(true); // Just to be paranoid.
             resp.setContentType("text/plain");
             resp.getOutputStream().write(" ".getBytes(UTF_8));
             break;
