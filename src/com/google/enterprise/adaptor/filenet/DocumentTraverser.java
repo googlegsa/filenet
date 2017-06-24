@@ -38,6 +38,19 @@ import com.filenet.api.core.Document;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
+import com.filenet.api.property.Property;
+import com.filenet.api.property.PropertyBoolean;
+import com.filenet.api.property.PropertyBooleanList;
+import com.filenet.api.property.PropertyDateTime;
+import com.filenet.api.property.PropertyDateTimeList;
+import com.filenet.api.property.PropertyFloat64;
+import com.filenet.api.property.PropertyFloat64List;
+import com.filenet.api.property.PropertyId;
+import com.filenet.api.property.PropertyIdList;
+import com.filenet.api.property.PropertyInteger32;
+import com.filenet.api.property.PropertyInteger32List;
+import com.filenet.api.property.PropertyString;
+import com.filenet.api.property.PropertyStringList;
 import com.filenet.api.security.ActiveMarking;
 import com.filenet.api.security.Marking;
 import com.filenet.api.util.Id;
@@ -48,6 +61,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -375,22 +389,101 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   }
 
   private void setMetadata(Document document, Response response) {
-    IDocumentProperties properties =
-        options.getObjectFactory().getDocumentProperties(document);
     Set<String> names = new TreeSet<>();
-    for (String name : properties.getPropertyNames()) {
+    for (Property property : document.getProperties().toArray()) {
+      String name = property.getPropertyName();
       if ((options.getIncludedMetadata().isEmpty()
               || options.getIncludedMetadata().contains(name))
           && !options.getExcludedMetadata().contains(name)) {
-        ArrayList<String> list = new ArrayList<>();
-        properties.getProperty(name, list);
-        for (String value : list) {
+        logger.log(Level.FINEST, "Getting property: [{0}]", name);
+        for (String value : getPropertyValues(property)) {
           response.addMetadata(name, value);
           names.add(name);
         }
       }
     }
     logger.log(Level.FINEST, "Property names: {0}", names);
+  }
+
+  private List<String> getPropertyValues(Property prop) {
+    ArrayList<String> list = new ArrayList<>();
+    if (prop instanceof PropertyString) {
+      getValue(prop.getStringValue(), list);
+    } else if (prop instanceof PropertyStringList) {
+      getListValue(prop.getStringListValue(), list);
+    } else if (prop instanceof PropertyBoolean) {
+      getValue(prop.getBooleanValue(), list);
+    } else if (prop instanceof PropertyBooleanList) {
+      getListValue(prop.getBooleanListValue(), list);
+    } else if (prop instanceof PropertyDateTime) {
+      getDateValue(prop.getDateTimeValue(), list);
+    } else if (prop instanceof PropertyDateTimeList) {
+      getDateListValue(prop.getDateTimeListValue(), list);
+    } else if (prop instanceof PropertyFloat64) {
+      getValue(prop.getFloat64Value(), list);
+    } else if (prop instanceof PropertyFloat64List) {
+      getListValue(prop.getFloat64ListValue(), list);
+    } else if (prop instanceof PropertyInteger32) {
+      getValue(prop.getInteger32Value(), list);
+    } else if (prop instanceof PropertyInteger32List) {
+      getListValue(prop.getInteger32ListValue(), list);
+    } else if (prop instanceof PropertyId) {
+      getGuidValue(prop.getIdValue(), list);
+    } else if (prop instanceof PropertyIdList) {
+      getGuidListValue(prop.getIdListValue(), list);
+    } else {
+      logger.log(Level.FINEST, "Property type is not supported: {0}",
+          prop.getClass().getName());
+    }
+    return list;
+  }
+
+  private void getValue(Object val, List<String> valuesList) {
+    if (val != null) {
+      valuesList.add(val.toString());
+    }
+  }
+
+  private void getListValue(List<?> values, List<String> valuesList) {
+    for (Object val : values) {
+      if (val != null) {
+        valuesList.add(val.toString());
+      }
+    }
+  }
+
+  private void getGuidValue(Id val, List<String> valuesList) {
+    if (val != null) {
+      String id = val.toString();
+      valuesList.add(id.substring(1, id.length() - 1));
+    }
+  }
+
+  private void getGuidListValue(List<?> values, List<String> valuesList) {
+    for (Object val : values) {
+      if (val != null) {
+        String id = val.toString();
+        valuesList.add(id.substring(1, id.length() - 1));
+      }
+    }
+  }
+
+  private void getDateValue(Date val, List<String> valuesList) {
+    if (val != null) {
+      Calendar cal = Calendar.getInstance();
+      cal.setTime(val);
+      valuesList.add(/*TODO: ISO 8601*/val.toString());
+    }
+  }
+
+  private void getDateListValue(List<?> values, List<String> valuesList) {
+    for (Object val : values) {
+      if (val != null) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime((Date) val);
+        valuesList.add(/*TODO: ISO 8601*/val.toString());
+      }
+    }
   }
 
   private boolean hasAllowableSize(Id guid, Document document) {

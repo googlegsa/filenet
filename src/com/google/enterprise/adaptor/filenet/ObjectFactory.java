@@ -14,7 +14,6 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-import com.filenet.api.core.Document;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 
@@ -30,8 +29,6 @@ interface ObjectFactory {
 
   ObjectStore getObjectStore(AutoConnection connection,
       String objectStoreName) throws EngineRuntimeException;
-
-  IDocumentProperties getDocumentProperties(Document document);
 
   SearchWrapper getSearch(ObjectStore objectStore);
 }

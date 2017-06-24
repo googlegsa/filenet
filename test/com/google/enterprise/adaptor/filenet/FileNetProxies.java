@@ -48,15 +48,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import javax.security.auth.Subject;
 
 class FileNetProxies implements ObjectFactory {
@@ -195,52 +191,11 @@ class FileNetProxies implements ObjectFactory {
   }
 
   @Override
-  public IDocumentProperties getDocumentProperties(Document document) {
-    return new MockDocumentProperties(document);
-  }
-
-  private class MockDocumentProperties implements IDocumentProperties {
-    private final Map<String, Object> props;
-
-    MockDocumentProperties(Document doc) {
-      this.props = new HashMap<String, Object>();
-      props.put(PropertyNames.ID, doc.get_Id());
-      props.put(PropertyNames.DATE_LAST_MODIFIED, doc.get_DateLastModified());
-      props.put(PropertyNames.MIME_TYPE, doc.get_MimeType());
-      Double contentSize = doc.get_ContentSize();
-      props.put(PropertyNames.CONTENT_SIZE,
-          (contentSize == null) ? null : contentSize.toString());
-    }
-
-    @Override
-    public Set<String> getPropertyNames() {
-      return props.keySet();
-    }
-
-    @Override
-    public void getProperty(String name, List<String> list) {
-      Object obj = props.get(name);
-      if (obj == null) {
-        return;
-      } else if (obj instanceof Date) {
-        Date val = (Date) props.get(name);
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(val);
-        list.add(/*TODO: ISO 8601*/ val.toString());
-      } else {
-        String val = props.get(name).toString();
-        list.add(val);
-      }
-    }
-  }
-
-  @Override
   public SearchWrapper getSearch(ObjectStore objectStore) {
     IndependentObjectSet objectSet =
         new IndependentObjectSetMock(
             ((MockObjectStore) objectStore).getObjects());
     return new SearchMock(ImmutableMap.of(ClassNames.DOCUMENT, objectSet));
-
   }
 
   // The rest of the tables are in TraverserFactoryFixture.java in v3.

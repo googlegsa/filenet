@@ -14,7 +14,6 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-import com.filenet.api.core.Document;
 import com.filenet.api.core.Domain;
 import com.filenet.api.core.Factory;
 import com.filenet.api.core.ObjectStore;
@@ -50,11 +49,6 @@ class FileNetObjectFactory implements ObjectFactory {
     Domain domain = Factory.Domain.fetchInstance(
         connection.getConnection(), null, null);
     return Factory.ObjectStore.fetchInstance(domain, objectStoreName, null);
-  }
-
-  @Override
-  public IDocumentProperties getDocumentProperties(Document document) {
-    return new FnDocumentProperties(document);
   }
 
   @Override
