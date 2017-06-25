@@ -28,12 +28,19 @@ import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.ActiveMarkingList;
 import com.filenet.api.constants.ClassNames;
+import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.constants.VersionStatus;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.core.VersionSeries;
 import com.filenet.api.events.DeletionEvent;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.property.Properties;
+import com.filenet.api.property.Property;
+import com.filenet.api.property.PropertyDateTime;
+import com.filenet.api.property.PropertyFloat64;
+import com.filenet.api.property.PropertyId;
+import com.filenet.api.property.PropertyString;
 import com.filenet.api.security.ActiveMarking;
 import com.filenet.api.security.Marking;
 import com.filenet.api.util.Id;
@@ -120,6 +127,29 @@ class ObjectMocks {
       ActiveMarkingList activeMarkings) {
     VersionSeries vs = createMock(VersionSeries.class);
     expect(vs.get_Id()).andStubReturn(newId(guid));
+
+    Property[] props = new Property[4];
+    props[0] = createMock(PropertyId.class);
+    expect(props[0].getPropertyName()).andStubReturn(PropertyNames.ID);
+    expect(props[0].getIdValue()).andStubReturn(newId(guid));
+    replay(props[0]);
+    props[1] = createMock(PropertyDateTime.class);
+    expect(props[1].getPropertyName())
+        .andStubReturn(PropertyNames.DATE_LAST_MODIFIED);
+    expect(props[1].getDateTimeValue()).andStubReturn(parseTime(timeStr));
+    replay(props[1]);
+    props[2] = createMock(PropertyString.class);
+    expect(props[2].getPropertyName()).andStubReturn(PropertyNames.MIME_TYPE);
+    expect(props[2].getStringValue()).andStubReturn(mimeType);
+    replay(props[2]);
+    props[3] = createMock(PropertyFloat64.class);
+    expect(props[3].getPropertyName())
+        .andStubReturn(PropertyNames.CONTENT_SIZE);
+    expect(props[3].getFloat64Value()).andStubReturn(contentSize);
+    replay(props[3]);
+    Properties properties = createMock(Properties.class);
+    expect(properties.toArray()).andStubReturn(props);
+
     Document doc = createMock(Document.class);
     expect(doc.get_Id()).andStubReturn(newId(guid));
     expect(doc.get_VersionSeries()).andStubReturn(vs);
@@ -136,7 +166,8 @@ class ObjectMocks {
     expect(doc.get_MimeType()).andStubReturn(mimeType);
     expect(doc.get_Permissions()).andStubReturn(perms);
     expect(doc.get_ActiveMarkings()).andStubReturn(activeMarkings);
-    replay(vs, doc);
+    expect(doc.getProperties()).andStubReturn(properties);
+    replay(vs, properties, doc);
     objectStore.addObject(doc);
     return doc;
   }
