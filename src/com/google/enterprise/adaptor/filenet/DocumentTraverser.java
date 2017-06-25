@@ -80,9 +80,12 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       Logger.getLogger(DocumentTraverser.class.getName());
 
   private final ConfigOptions options;
+  private final int maxRecords;
 
   public DocumentTraverser(ConfigOptions options) {
     this.options = options;
+    // Leave room for the continuation URLs.
+    this.maxRecords = options.getMaxFeedUrls() - 2;
   }
 
   /** Percent escapes the curly braces in an Id string. */
@@ -105,7 +108,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       logger.log(Level.FINE, "Query for added or updated documents: {0}",
           query);
       IndependentObjectSet objectSet = search.fetchObjects(query,
-          options.getMaxFeedUrls() - 1, SearchWrapper.dereferenceObjects,
+          maxRecords, SearchWrapper.dereferenceObjects,
           SearchWrapper.ALL_ROWS);
       logger.fine(objectSet.isEmpty()
           ? "Found no documents to add or update"
@@ -121,13 +124,17 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         guid = object.get_Id(); // TODO: Use the VersionSeries ID.
         records.add(new DocIdPusher.Record.Builder(newDocId(guid)).build());
       }
+      // TODO(jlacey): if (records.size() == maxRecords)
       if (timestamp != null) {
         records.add(
             new DocIdPusher.Record.Builder(
                 newDocId(new Checkpoint(checkpoint.type, timestamp, guid)))
-            .setCrawlImmediately(true).build());
-        pusher.pushRecords(records);
+            .setCrawlImmediately(true).setCrawlOnce(true).build());
       }
+      records.add(
+          new DocIdPusher.Record.Builder(newDocId(checkpoint))
+          .setDeleteFromIndex(true).build());
+      pusher.pushRecords(records);
     } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
@@ -141,7 +148,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
    */
   private String buildQueryString(Checkpoint checkpoint) {
     StringBuilder query = new StringBuilder("SELECT TOP ");
-    query.append(options.getMaxFeedUrls() - 1);
+    query.append(maxRecords);
     query.append(" ");
     query.append(PropertyNames.ID);
     query.append(",");
@@ -157,7 +164,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       if ((additionalWhereClause.toUpperCase()).startsWith("SELECT ID,DATELASTMODIFIED FROM ")) {
         query = new StringBuilder(additionalWhereClause);
         query.replace(0, 6,
-            "SELECT TOP " + (options.getMaxFeedUrls() - 1) + " ");
+            "SELECT TOP " + maxRecords + " ");
         logger.log(Level.FINE, "Using Custom Query[{0}]",
             additionalWhereClause);
       } else {
