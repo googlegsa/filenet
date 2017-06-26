@@ -15,6 +15,9 @@
 package com.google.enterprise.adaptor.filenet;
 
 import static com.google.enterprise.adaptor.filenet.SecurityPrincipalMocks.DOMAIN;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
 
@@ -26,7 +29,9 @@ import com.filenet.api.constants.SecurityPrincipalType;
 import com.filenet.api.security.Group;
 import com.filenet.api.security.User;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -34,44 +39,45 @@ import java.util.Iterator;
 import java.util.Set;
 
 /** Tests the Permissions utility class. */
-public class PermissionsTest extends TestCase {
+public class PermissionsTest {
   private static final int VIEW_ACCESS_RIGHTS =
       AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
 
   private AccessPermissionListMock perms;
   private User user;
 
-  @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     perms = new AccessPermissionListMock();
     user = SecurityPrincipalMocks.createAdministratorUser();
   }
 
-  @Override
-  protected void tearDown() throws Exception {
-    try {
-      perms.clear();
-    } finally {
-      super.tearDown();
-    }
+  @After
+  public void tearDown() throws Exception {
+    perms.clear();
   }
 
+  @Test
   public void testAllowCreatorOwnerWithViewLevel() {
     testCreatorOwnerAccess(AccessType.ALLOW, AccessLevel.VIEW_AS_INT, true);
   }
 
+  @Test
   public void testAllowCreatorOwnerWithViewAccessRights() {
     testCreatorOwnerAccess(AccessType.ALLOW, VIEW_ACCESS_RIGHTS, true);
   }
 
+  @Test
   public void testDenyCreatorOwner() {
     testCreatorOwnerAccess(AccessType.DENY, VIEW_ACCESS_RIGHTS, false);
   }
 
+  @Test
   public void testDenyCreatorOwnerWithoutViewContentRight() {
     testCreatorOwnerAccess(AccessType.DENY, AccessRight.READ_AS_INT, false);
   }
 
+  @Test
   public void testDenyCreatorOwnerWithoutReadRight() {
     testCreatorOwnerAccess(AccessType.DENY, AccessRight.VIEW_CONTENT_AS_INT,
         false);
@@ -93,6 +99,7 @@ public class PermissionsTest extends TestCase {
   }
 
   @SuppressWarnings({"unchecked"})
+  @Test
   public void testCreatorOwnerWithBothAllowAndDeny() {
     AccessPermissionMock creatorOwnerPermDeny =
         new AccessPermissionMock(PermissionSource.SOURCE_DIRECT);
@@ -114,21 +121,25 @@ public class PermissionsTest extends TestCase {
     assertTrue(testPerms.authorize(user));
   }
 
+  @Test
   public void testAllowUserWithoutViewContentRight() {
     testUserAccess(AccessType.ALLOW, AccessRight.READ_AS_INT, user, false);
   }
 
+  @Test
   public void testAllowUserWithoutReadRight() {
     testUserAccess(AccessType.ALLOW, AccessRight.VIEW_CONTENT_AS_INT, user,
         false);
   }
 
+  @Test
   public void testAllowUserWithoutViewRights() {
     int accessRights = AccessRight.WRITE_OWNER_AS_INT
         | AccessRight.WRITE_ACL_AS_INT | AccessRight.DELETE_AS_INT;
     testUserAccess(AccessType.ALLOW, accessRights, user, false);
   }
 
+  @Test
   public void testDenyUserWithoutViewRights() {
     int accessRights = AccessRight.WRITE_OWNER_AS_INT
         | AccessRight.WRITE_ACL_AS_INT | AccessRight.DELETE_AS_INT;
@@ -169,33 +180,39 @@ public class PermissionsTest extends TestCase {
     assertEquals(expectedResult, testPerms.authorize(testUser));
   }
 
+  @Test
   public void testShortName() {
     User jsmith = SecurityPrincipalMocks.createUserWithShortName("jsmith");
     testUserAccess(AccessType.ALLOW, VIEW_ACCESS_RIGHTS, jsmith, true);
   }
 
+  @Test
   public void testShortNameWithDifferentDomain() {
     User jsmith = SecurityPrincipalMocks.createUserWithShortName("jsmith");
     testUserAccess(AccessType.ALLOW, VIEW_ACCESS_RIGHTS, "jsmith@example.com",
         jsmith, false);
   }
 
+  @Test
   public void testDistinguishedName() {
     testUserAccess(AccessType.ALLOW, VIEW_ACCESS_RIGHTS,
         user.get_DistinguishedName(), user, true);
   }
 
+  @Test
   public void testInvalidUser() {
     User invalidUser = SecurityPrincipalMocks.createBlankUser();
     testUserAccess(AccessType.ALLOW, VIEW_ACCESS_RIGHTS, user.get_Name(),
         invalidUser, false);
   }
 
+  @Test
   public void testAuthenticatedUsers() {
     testAccess(AccessType.ALLOW, VIEW_ACCESS_RIGHTS,
         SecurityPrincipalType.GROUP, "#AUTHENTICATED-USERS", user, true);
   }
 
+  @Test
   public void testUserGroupAccess_WithDomainName() {
     Set<String> userGroups = getGroupNames(user);
     assertTrue(userGroups.contains("administrators@" + DOMAIN));
@@ -203,6 +220,7 @@ public class PermissionsTest extends TestCase {
         "administrators@" + DOMAIN, user, true);
   }
 
+  @Test
   public void testUserGroupAccess_WithShortName() {
     Group everyone = SecurityPrincipalMocks.createEveryoneGroup();
     assertEquals(everyone.get_ShortName(), "everyone");
@@ -214,6 +232,7 @@ public class PermissionsTest extends TestCase {
         everyone.get_ShortName(), jsmith, false);
   }
 
+  @Test
   public void testUserGroupAccess_WithDistinguishedName() {
     Group everyone = SecurityPrincipalMocks.createEveryoneGroup();
     assertEquals(everyone.get_DistinguishedName(),
@@ -228,6 +247,7 @@ public class PermissionsTest extends TestCase {
   }
 
   @SuppressWarnings({"unchecked"})
+  @Test
   public void testUserGroupAccess_HavingBothAllowAndDeny() {
     Set<String> userGroups = getGroupNames(user);
     assertTrue(userGroups.contains("administrators@" + DOMAIN));
@@ -266,6 +286,7 @@ public class PermissionsTest extends TestCase {
     return groups;
   }
 
+  @Test
   public void testEmptyPermissionList() {
     assertEquals("Access permission list is not empty", 0, perms.size());
     Permissions.Acl emptyPerms = new Permissions(perms).getAcl();
@@ -323,6 +344,7 @@ public class PermissionsTest extends TestCase {
     }
   }
 
+  @Test
   public void testEmptyAllowUsers() {
     populateAces(10, false, true, true, true, PermissionSource.SOURCE_DIRECT);
     Permissions.Acl testPerms = new Permissions(perms).getAcl();
@@ -332,6 +354,7 @@ public class PermissionsTest extends TestCase {
     assertEquals(10, testPerms.getDenyGroups().size());
   }
 
+  @Test
   public void testEmptyDenyUsers() {
     populateAces(10, true, false, true, true, PermissionSource.SOURCE_DIRECT);
     Permissions.Acl testPerms = new Permissions(perms).getAcl();
@@ -341,6 +364,7 @@ public class PermissionsTest extends TestCase {
     assertEquals(10, testPerms.getDenyGroups().size());
   }
 
+  @Test
   public void testEmptyAllowGroups() {
     populateAces(10, true, true, false, true, PermissionSource.SOURCE_DIRECT);
     Permissions.Acl testPerms = new Permissions(perms).getAcl();
@@ -350,6 +374,7 @@ public class PermissionsTest extends TestCase {
     assertEquals(10, testPerms.getDenyGroups().size());
   }
 
+  @Test
   public void testEmptyDenyGroups() {
     populateAces(10, true, true, true, false, PermissionSource.SOURCE_DIRECT);
     Permissions.Acl testPerms = new Permissions(perms).getAcl();
@@ -381,6 +406,7 @@ public class PermissionsTest extends TestCase {
     }
   }
 
+  @Test
   public void testGetAllowUsers() {
     Permissions.Acl testPerms = getObjectUnderTest(8, 7, 6, 5,
         PermissionSource.SOURCE_DIRECT);
@@ -390,6 +416,7 @@ public class PermissionsTest extends TestCase {
         PermissionSource.SOURCE_DIRECT.toString() + " allow user ", 8);
   }
 
+  @Test
   public void testGetAllowUsersBySource() {
     Permissions.Acl testPerms = getObjectUnderTest(8, 7, 6, 5,
         PermissionSource.SOURCE_DIRECT, PermissionSource.SOURCE_DEFAULT);
@@ -404,6 +431,7 @@ public class PermissionsTest extends TestCase {
         PermissionSource.SOURCE_DIRECT.toString() + " allow user ", 8);
   }
 
+  @Test
   public void testGetDenyUsers() {
     Permissions.Acl testPerms = getObjectUnderTest(8, 7, 6, 5,
         PermissionSource.SOURCE_DIRECT);
@@ -413,6 +441,7 @@ public class PermissionsTest extends TestCase {
         PermissionSource.SOURCE_DIRECT.toString() + " deny user ", 6);
   }
 
+  @Test
   public void testGetDenyUsersBySource() {
     Permissions.Acl testPerms = getObjectUnderTest(8, 7, 6, 5,
         PermissionSource.SOURCE_PARENT, PermissionSource.SOURCE_DEFAULT);
@@ -427,6 +456,7 @@ public class PermissionsTest extends TestCase {
         PermissionSource.SOURCE_PARENT.toString() + " deny user ", 6);
   }
 
+  @Test
   public void testGetAllowGroups() {
     Permissions.Acl testPerms = getObjectUnderTest(8, 7, 6, 5,
         PermissionSource.SOURCE_DIRECT);
@@ -436,6 +466,7 @@ public class PermissionsTest extends TestCase {
         PermissionSource.SOURCE_DIRECT.toString() + " allow group ", 7);
   }
 
+  @Test
   public void testGetAllowGroupsBySource() {
     Permissions.Acl testPerms = getObjectUnderTest(8, 7, 6, 5,
         PermissionSource.SOURCE_DIRECT, PermissionSource.SOURCE_DEFAULT);
@@ -450,6 +481,7 @@ public class PermissionsTest extends TestCase {
             PermissionSource.SOURCE_DIRECT.toString() + " allow group ", 7);
   }
 
+  @Test
   public void testGetDenyGroups() {
     Permissions.Acl testPerms = getObjectUnderTest(8, 7, 6, 5,
         PermissionSource.SOURCE_DIRECT);
@@ -459,6 +491,7 @@ public class PermissionsTest extends TestCase {
         PermissionSource.SOURCE_DIRECT.toString() + " deny group ", 5);
   }
 
+  @Test
   public void testGetDenyGroupsBySource() {
     Permissions.Acl testPerms = getObjectUnderTest(8, 7, 6, 5,
         PermissionSource.SOURCE_PARENT, PermissionSource.SOURCE_DEFAULT);
@@ -518,6 +551,7 @@ public class PermissionsTest extends TestCase {
         constraintMask));
   }
 
+  @Test
   public void testMarking_WithUseRight_AllowAce() {
       testUserMarking(AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, true,
     AccessRight.VIEW_CONTENT, AccessRight.READ);
@@ -525,6 +559,7 @@ public class PermissionsTest extends TestCase {
         AccessRight.NONE);
   }
 
+  @Test
   public void testMarking_WithUseRight_DenyAce() {
     testUserMarking(AccessType.DENY, AccessRight.USE_MARKING_AS_INT, true,
         AccessRight.VIEW_CONTENT, AccessRight.READ);
@@ -534,6 +569,7 @@ public class PermissionsTest extends TestCase {
         AccessRight.READ);
   }
 
+  @Test
   public void testMarking_NoUseRight_ViewLevelConstraint() {
     User user1 =
         SecurityPrincipalMocks.createUserWithDomain("user1", "foo.example.com");
@@ -545,6 +581,7 @@ public class PermissionsTest extends TestCase {
         constraintMask(AccessLevel.VIEW_AS_INT));
   }
 
+  @Test
   public void testMarking_NoUseRight_AllowReadViewContentRights() {
     testUserMarking(AccessType.ALLOW, AccessRight.NONE_AS_INT, true,
         AccessRight.VIEW_CONTENT, AccessRight.READ);
@@ -552,6 +589,7 @@ public class PermissionsTest extends TestCase {
         AccessRight.VIEW_CONTENT, AccessRight.READ, AccessRight.DELETE);
   }
 
+  @Test
   public void testMarking_NoUseRight_MissingAllowReadViewContentRights() {
     testUserMarking(AccessType.ALLOW, AccessRight.NONE_AS_INT, false,
         AccessRight.VIEW_CONTENT);
@@ -559,6 +597,7 @@ public class PermissionsTest extends TestCase {
         AccessRight.READ);
   }
 
+  @Test
   public void testMarking_NoUseRight_DenyReadViewContentRights() {
     // Under live test, the DENY access type does not have any effects or
     // behaves the same as ALLOW; only constraint mask matters.
@@ -573,6 +612,7 @@ public class PermissionsTest extends TestCase {
         AccessRight.VIEW_CONTENT, AccessRight.READ);
   }
 
+  @Test
   public void testMarking_NoUseRight_DenyOtherRights() {
     testUserMarking(AccessType.DENY, AccessRight.NONE_AS_INT, false,
         AccessRight.DELETE);
@@ -583,6 +623,7 @@ public class PermissionsTest extends TestCase {
   }
 
   @SuppressWarnings({"unchecked"})
+  @Test
   public void testMarking_NoUseRight_HavingBothAllowAndDeny() {
     User user1 =
         SecurityPrincipalMocks.createUserWithDomain("user1", "foo.example.com");
@@ -611,6 +652,7 @@ public class PermissionsTest extends TestCase {
   }
 
   @SuppressWarnings({"unchecked"})
+  @Test
   public void testMarking_HavingBothAllowAndDenyUseRights() {
     User user1 =
         SecurityPrincipalMocks.createUserWithDomain("user1", "foo.example.com");
@@ -638,6 +680,7 @@ public class PermissionsTest extends TestCase {
         constraintMask(AccessRight.VIEW_CONTENT, AccessRight.READ)));
   }
 
+  @Test
   public void testMarking_UserNotMatchingAnyAces() {
     User user1 =
         SecurityPrincipalMocks.createUserWithDomain("user1", "foo.example.com");
