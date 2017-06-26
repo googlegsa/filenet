@@ -43,6 +43,8 @@ import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
+import com.filenet.api.constants.AccessLevel;
+import com.filenet.api.constants.AccessRight;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.util.Id;
@@ -428,6 +430,8 @@ public class DocumentTraverserTest {
     String markingId2 = "{AAAAAAAA-0002-0000-0000-000000000000}";
     DocId docId = newDocId(new Id(id));
     MockObjectStore os = getObjectStore();
+    int markingAccessMask = AccessRight.USE_MARKING_AS_INT
+        | AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
 
     mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
         1000d, "text/plain",
@@ -437,9 +441,14 @@ public class DocumentTraverserTest {
             PermissionSource.SOURCE_PARENT),
         new ActiveMarkingListMock(
             mockActiveMarking("marking1", markingId1,
-                TestObjectFactory.getPermissions(PermissionSource.MARKING)),
-            mockActiveMarking("marking2", markingId2,
-                TestObjectFactory.getPermissions(PermissionSource.MARKING))));
+                AccessLevel.FULL_CONTROL_AS_INT,
+                TestObjectFactory.newPermissionList(
+                    TestObjectFactory.generatePermissions(1, 1, 1, 1,
+                        markingAccessMask, 0, PermissionSource.MARKING))),
+            mockActiveMarking("marking2", markingId2, AccessRight.READ_AS_INT,
+                TestObjectFactory.newPermissionList(
+                    TestObjectFactory.generatePermissions(1, 1, 1, 1,
+                        markingAccessMask, 0, PermissionSource.MARKING)))));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
     Request request = new MockRequest(docId);

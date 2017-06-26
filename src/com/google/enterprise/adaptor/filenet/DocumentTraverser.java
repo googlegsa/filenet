@@ -312,7 +312,8 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       ActiveMarking activeMarking = (ActiveMarking) iterator.next();
       Marking marking = activeMarking.get_Marking();
       Permissions.Acl markingPerms =
-          new Permissions(marking.get_Permissions()).getAcl();
+          new Permissions(marking.get_Permissions())
+          .getMarkingAcl(marking.get_ConstraintMask());
       Acl markingAcl = createAcl(docId, fragment,
           Acl.InheritanceType.AND_BOTH_PERMIT,
           markingPerms.getAllowUsers(), markingPerms.getDenyUsers(),

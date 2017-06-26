@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
 
 import com.filenet.api.constants.AccessLevel;
@@ -40,6 +41,8 @@ import java.util.Set;
 
 /** Tests the Permissions utility class. */
 public class PermissionsTest {
+
+  private static final String AUTHENTICATED_USERS = "#AUTHENTICATED-USERS";
   private static final int VIEW_ACCESS_RIGHTS =
       AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
 
@@ -690,5 +693,276 @@ public class PermissionsTest {
     testMarking(AccessType.ALLOW, VIEW_ACCESS_RIGHTS,
         SecurityPrincipalType.USER, "user2@bar.example.com", user1, false,
         AccessRight.NONE);
+  }
+
+  //======================================================================
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_emptyAcl_allowConstraintMask() throws Exception {
+    Permissions testPerms = new Permissions(perms);
+    Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
+
+    assertEquals(ImmutableSet.<String>of(AUTHENTICATED_USERS),
+        acl.getAllowGroups(PermissionSource.MARKING));
+    assertEquals(ImmutableSet.<String>of(AUTHENTICATED_USERS),
+        acl.getAllowGroups());
+    assertTrue(acl.getAllowUsers().toString(), acl.getAllowUsers().isEmpty());
+    assertTrue(acl.getDenyUsers().toString(), acl.getDenyUsers().isEmpty());
+    assertTrue(acl.getDenyGroups().toString(), acl.getDenyGroups().isEmpty());
+  }
+
+  @Test
+  public void testMarkingAcl_emptyAcl_denyConstraintMask() throws Exception {
+    Permissions testPerms = new Permissions(perms);
+    Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
+
+    assertTrue(acl.getAllowUsers().toString(), acl.getAllowUsers().isEmpty());
+    assertTrue(acl.getAllowGroups().toString(), acl.getAllowGroups().isEmpty());
+    assertTrue(acl.getDenyUsers().toString(), acl.getDenyUsers().isEmpty());
+    assertTrue(acl.getDenyGroups().toString(), acl.getDenyGroups().isEmpty());
+  }
+
+  @Test
+  public void testMarkingAcl_emptyAcl_partialConstraintMask() throws Exception {
+    Permissions testPerms = new Permissions(perms);
+    Permissions.Acl acl = testPerms.getMarkingAcl(~AccessRight.READ_AS_INT);
+
+    assertTrue(acl.getAllowUsers().toString(), acl.getAllowUsers().isEmpty());
+    assertTrue(acl.getAllowGroups().toString(), acl.getAllowGroups().isEmpty());
+    assertTrue(acl.getDenyUsers().toString(), acl.getDenyUsers().isEmpty());
+    assertTrue(acl.getDenyGroups().toString(), acl.getDenyGroups().isEmpty());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_noUseMarking_allowConstraintMask()
+      throws Exception {
+    Permissions testPerms = new Permissions(
+        TestObjectFactory.getPermissions(PermissionSource.MARKING));
+    Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
+
+    assertEquals(ImmutableSet.<String>of(AUTHENTICATED_USERS),
+        acl.getAllowGroups(PermissionSource.MARKING));
+    assertEquals(ImmutableSet.<String>of(AUTHENTICATED_USERS),
+        acl.getAllowGroups());
+    assertTrue(acl.getAllowUsers().toString(), acl.getAllowUsers().isEmpty());
+    assertTrue(acl.getDenyUsers().toString(), acl.getDenyUsers().isEmpty());
+    assertTrue(acl.getDenyGroups().toString(), acl.getDenyGroups().isEmpty());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_noUseMarking_denyConstraintMask()
+      throws Exception {
+    Permissions testPerms = new Permissions(
+        TestObjectFactory.getPermissions(PermissionSource.MARKING));
+    Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
+
+    assertTrue(acl.getAllowUsers().toString(), acl.getAllowUsers().isEmpty());
+    assertTrue(acl.getAllowGroups().toString(), acl.getAllowGroups().isEmpty());
+    assertTrue(acl.getDenyUsers().toString(), acl.getDenyUsers().isEmpty());
+    assertTrue(acl.getDenyGroups().toString(), acl.getDenyGroups().isEmpty());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_noUseMarking_partialConstraintMask()
+      throws Exception {
+    Permissions testPerms = new Permissions(
+        TestObjectFactory.getPermissions(PermissionSource.MARKING));
+    Permissions.Acl acl = testPerms.getMarkingAcl(~AccessRight.READ_AS_INT);
+
+    assertTrue(acl.getAllowUsers().toString(), acl.getAllowUsers().isEmpty());
+    assertTrue(acl.getAllowGroups().toString(), acl.getAllowGroups().isEmpty());
+    assertTrue(acl.getDenyUsers().toString(), acl.getDenyUsers().isEmpty());
+    assertTrue(acl.getDenyGroups().toString(), acl.getDenyGroups().isEmpty());
+  }
+
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_allUseMarking_allowConstraintMask()
+      throws Exception {
+    Permissions testPerms = new Permissions(
+        TestObjectFactory.newPermissionList(
+            TestObjectFactory.generatePermissions(2, 2, 1, 2,
+                AccessRight.USE_MARKING_AS_INT, 0, PermissionSource.MARKING)));
+    Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
+
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+        acl.getAllowUsers());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_allow_group_0", AUTHENTICATED_USERS),
+        acl.getAllowGroups());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+        acl.getDenyUsers());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+        acl.getDenyGroups());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_allUseMarking_denyConstraintMask()
+      throws Exception {
+    Permissions testPerms = new Permissions(
+        TestObjectFactory.newPermissionList(
+            TestObjectFactory.generatePermissions(2, 2, 1, 2,
+                AccessRight.USE_MARKING_AS_INT, 0, PermissionSource.MARKING)));
+    Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
+
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+        acl.getAllowUsers());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_allow_group_0"),
+        acl.getAllowGroups());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+        acl.getDenyUsers());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+        acl.getDenyGroups());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_allUseMarking_partialConstraintMask()
+      throws Exception {
+    Permissions testPerms = new Permissions(
+        TestObjectFactory.newPermissionList(
+            TestObjectFactory.generatePermissions(2, 2, 1, 2,
+                AccessRight.USE_MARKING_AS_INT, 0, PermissionSource.MARKING)));
+    Permissions.Acl acl = testPerms.getMarkingAcl(AccessRight.READ_AS_INT);
+
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+        acl.getAllowUsers());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_allow_group_0"),
+        acl.getAllowGroups());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+        acl.getDenyUsers());
+    assertEquals(
+        ImmutableSet.<String>of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+        acl.getDenyGroups());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_someUseMarking_allowConstraintMask()
+      throws Exception {
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, 0, "allowUser1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.ALLOW, 0, 0, "allowUser2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.ALLOW, 0, 0, "allowGroup1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, 0, "allowGroup2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.DENY, 0, 0, "denyUser1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.DENY, AccessRight.USE_MARKING_AS_INT, 0, "denyUser2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.DENY, AccessRight.USE_MARKING_AS_INT, 0, "denyGroup1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.DENY, 0, 0, "denyGroup2");
+
+    Permissions testPerms = new Permissions(perms);
+    Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
+
+    assertEquals(
+        ImmutableSet.<String>of("allowUser1"),
+        acl.getAllowUsers());
+    assertEquals(
+        ImmutableSet.<String>of("allowGroup2", AUTHENTICATED_USERS),
+        acl.getAllowGroups());
+    assertEquals(
+        ImmutableSet.<String>of("denyUser2"),
+        acl.getDenyUsers());
+    assertEquals(
+        ImmutableSet.<String>of("denyGroup1"),
+        acl.getDenyGroups());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_someUseMarking_denyConstraintMask()
+      throws Exception {
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, 0, "allowUser1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+           AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, 0, "allowUser2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.ALLOW, 0, 0, "allowGroup1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, 0, "allowGroup2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.DENY, 0, 0, "denyUser1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.DENY, AccessRight.USE_MARKING_AS_INT, 0, "denyUser2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.DENY, AccessRight.USE_MARKING_AS_INT, 0, "denyGroup1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.DENY, AccessRight.USE_MARKING_AS_INT, 0, "denyGroup2");
+
+    Permissions testPerms = new Permissions(perms);
+    Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
+
+    assertEquals(
+        ImmutableSet.<String>of("allowUser1", "allowUser2"),
+        acl.getAllowUsers());
+    assertEquals(
+        ImmutableSet.<String>of("allowGroup2"),
+        acl.getAllowGroups());
+    assertEquals(
+        ImmutableSet.<String>of("denyUser2"),
+        acl.getDenyUsers());
+    assertEquals(
+        ImmutableSet.<String>of("denyGroup1", "denyGroup2"),
+        acl.getDenyGroups());
+  }
+
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  @Test
+  public void testMarkingAcl_someUseMarking_partialConstraintMask()
+      throws Exception {
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, 0, "allowUser1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+           AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, 0, "allowUser2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.ALLOW, 0, 0, "allowGroup1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.ALLOW, AccessRight.USE_MARKING_AS_INT, 0, "allowGroup2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.DENY, 0, 0, "denyUser1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.USER,
+        AccessType.DENY, AccessRight.USE_MARKING_AS_INT, 0, "denyUser2");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.DENY, AccessRight.USE_MARKING_AS_INT, 0, "denyGroup1");
+    addAce(PermissionSource.MARKING, SecurityPrincipalType.GROUP,
+        AccessType.DENY, AccessRight.USE_MARKING_AS_INT, 0, "denyGroup2");
+
+    Permissions testPerms = new Permissions(perms);
+    Permissions.Acl acl = testPerms.getMarkingAcl(AccessRight.READ_AS_INT);
+
+    assertEquals(
+        ImmutableSet.<String>of("allowUser1", "allowUser2"),
+        acl.getAllowUsers());
+    assertEquals(
+        ImmutableSet.<String>of("allowGroup2"),
+        acl.getAllowGroups());
+    assertEquals(
+        ImmutableSet.<String>of("denyUser2"),
+        acl.getDenyUsers());
+    assertEquals(
+        ImmutableSet.<String>of("denyGroup1", "denyGroup2"),
+        acl.getDenyGroups());
   }
 }

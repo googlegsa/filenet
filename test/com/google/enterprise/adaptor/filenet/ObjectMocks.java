@@ -177,9 +177,10 @@ class ObjectMocks {
    * and Permissions.
    */
   public static ActiveMarking mockActiveMarking(String name,
-      String guid, AccessPermissionList perms) {
+      String guid, Integer constraintMask, AccessPermissionList perms) {
     Marking marking = createMock(Marking.class);
     expect(marking.get_Id()).andStubReturn(newId(guid));
+    expect(marking.get_ConstraintMask()).andStubReturn(constraintMask);
     expect(marking.get_Permissions()).andStubReturn(perms);
     ActiveMarking activeMarking = createMock(ActiveMarking.class);
     expect(activeMarking.get_Marking()).andStubReturn(marking);
