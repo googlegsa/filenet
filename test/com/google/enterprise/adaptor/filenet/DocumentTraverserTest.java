@@ -32,10 +32,10 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher.Record;
+import com.google.enterprise.adaptor.Metadata;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.ActiveMarkingListMock;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
@@ -74,6 +74,8 @@ public class DocumentTraverserTest {
 
   private static final String DOCUMENT_TIMESTAMP =
       "2014-01-01T20:00:00.000";
+  private static final String DOCUMENT_DATE =
+      DOCUMENT_TIMESTAMP.substring(0, DOCUMENT_TIMESTAMP.indexOf('T'));
 
   private static final String CHECKPOINT_TIMESTAMP;
 
@@ -360,8 +362,11 @@ public class DocumentTraverserTest {
     traverser.getDocContent(new Id(id), request, response);
 
     assertEquals(
-        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED),
-        response.getMetadata().getKeys());
+        new Metadata(
+            ImmutableMap.of(PropertyNames.ID, id.substring(1, id.length() - 1),
+                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE)
+            .entrySet()),
+        response.getMetadata());
 
     Acl acl = response.getAcl();
     assertFalse(acl.getPermitUsers().toString(),
@@ -404,8 +409,11 @@ public class DocumentTraverserTest {
     traverser.getDocContent(new Id(id), request, response);
 
     assertEquals(
-        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED),
-        response.getMetadata().getKeys());
+        new Metadata(
+            ImmutableMap.of(PropertyNames.ID, id.substring(1, id.length() - 1),
+                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE)
+            .entrySet()),
+        response.getMetadata());
 
     byte[] actualContent = baos.toByteArray();
     assertEquals("sample content", new String(actualContent, UTF_8));
@@ -433,8 +441,11 @@ public class DocumentTraverserTest {
     traverser.getDocContent(new Id(id), request, response);
 
     assertEquals(
-        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED),
-        response.getMetadata().getKeys());
+        new Metadata(
+            ImmutableMap.of(PropertyNames.ID, id.substring(1, id.length() - 1),
+                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE)
+            .entrySet()),
+        response.getMetadata());
 
     assertNotNull(response.getAcl());
     assertFalse(response.getNamedResources().isEmpty());
@@ -469,9 +480,13 @@ public class DocumentTraverserTest {
     traverser.getDocContent(new Id(id), request, response);
 
     assertEquals(
-        ImmutableSet.of(PropertyNames.ID, PropertyNames.DATE_LAST_MODIFIED,
-            PropertyNames.CONTENT_SIZE, PropertyNames.MIME_TYPE),
-        response.getMetadata().getKeys());
+        new Metadata(
+            ImmutableMap.of(PropertyNames.ID, id.substring(1, id.length() - 1),
+                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE,
+                PropertyNames.CONTENT_SIZE, "1000.0",
+                PropertyNames.MIME_TYPE, "text/plain")
+            .entrySet()),
+        response.getMetadata());
 
     assertEquals("text/plain", response.getContentType());
     byte[] actualContent =

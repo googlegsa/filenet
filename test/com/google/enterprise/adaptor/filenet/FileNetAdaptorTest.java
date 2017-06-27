@@ -442,6 +442,29 @@ public class FileNetAdaptorTest {
   }
 
   @Test
+  public void testInit_metadataDateFormat() throws Exception {
+    config.overrideKey("filenet.metadataDateFormat", "yyyy-DD");
+    adaptor.init(context);
+    assertEquals("yyyy-DD",
+        getConfigOptions().getMetadataDateFormat().toPattern());
+  }
+
+  @Test
+  public void testInit_metadataDateFormat_default() throws Exception {
+    adaptor.init(context);
+    assertEquals("yyyy-MM-dd",
+        getConfigOptions().getMetadataDateFormat().toPattern());
+  }
+
+  @Test
+  public void testInit_metadataDateFormat_invalid() throws Exception {
+    config.overrideKey("filenet.metadataDateFormat", "yyyy-jj");
+    thrown.expect(InvalidConfigurationException.class);
+    thrown.expectMessage("Invalid filenet.metadataDateFormat value:");
+    adaptor.init(context);
+  }
+
+  @Test
   public void testInit_maxFeedUrls() throws Exception {
     config.overrideKey("feed.maxUrls", "10");
     adaptor.init(context);

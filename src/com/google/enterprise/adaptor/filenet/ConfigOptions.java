@@ -24,6 +24,7 @@ import com.google.enterprise.adaptor.SensitiveValueDecoder;
 import com.filenet.api.core.ObjectStore;
 
 import java.net.URISyntaxException;
+import java.text.SimpleDateFormat;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -49,6 +50,7 @@ class ConfigOptions {
   private final String deleteAdditionalWhereClause;
   private final Set<String> includedMetadata;
   private final Set<String> excludedMetadata;
+  private final ThreadLocal<SimpleDateFormat> metadataDateFormat;
   private final String globalNamespace;
   private final int maxFeedUrls;
 
@@ -144,6 +146,24 @@ class ConfigOptions {
         splitter.split(config.getValue("filenet.includedMetadata")));
     logger.log(Level.CONFIG, "filenet.includedMetadata: {0}", includedMetadata);
 
+    final String metadataDateFormat =
+        config.getValue("filenet.metadataDateFormat");
+    this.metadataDateFormat =
+        new ThreadLocal<SimpleDateFormat>() {
+          @Override protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat(metadataDateFormat);
+          }
+        };
+    try {
+      this.metadataDateFormat.get();
+      this.metadataDateFormat.remove();
+    } catch (IllegalArgumentException e) {
+      throw new InvalidConfigurationException(
+          "Invalid filenet.metadataDateFormat value: " + e.getMessage());
+    }
+    logger.log(Level.CONFIG, "filenet.metadataDateFormat: {0}",
+        metadataDateFormat);
+
     try {
       maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
       if (maxFeedUrls < 3) {
@@ -208,6 +228,10 @@ class ConfigOptions {
 
   public Set<String> getIncludedMetadata() {
     return includedMetadata;
+  }
+
+  public SimpleDateFormat getMetadataDateFormat() {
+    return metadataDateFormat.get();
   }
 
   public int getMaxFeedUrls() {
