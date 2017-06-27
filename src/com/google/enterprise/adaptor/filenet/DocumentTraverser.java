@@ -61,7 +61,6 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -453,9 +452,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
   private void getListValue(List<?> values, List<String> valuesList) {
     for (Object val : values) {
-      if (val != null) {
-        valuesList.add(val.toString());
-      }
+      getValue(val, valuesList);
     }
   }
 
@@ -468,28 +465,19 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
   private void getGuidListValue(List<?> values, List<String> valuesList) {
     for (Object val : values) {
-      if (val != null) {
-        String id = val.toString();
-        valuesList.add(id.substring(1, id.length() - 1));
-      }
+      getGuidValue((Id) val, valuesList);
     }
   }
 
   private void getDateValue(Date val, List<String> valuesList) {
     if (val != null) {
-      Calendar cal = Calendar.getInstance();
-      cal.setTime(val);
-      valuesList.add(/*TODO: ISO 8601*/val.toString());
+      valuesList.add(options.getMetadataDateFormat().format(val));
     }
   }
 
   private void getDateListValue(List<?> values, List<String> valuesList) {
     for (Object val : values) {
-      if (val != null) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime((Date) val);
-        valuesList.add(/*TODO: ISO 8601*/val.toString());
-      }
+      getDateValue((Date) val, valuesList);
     }
   }
 

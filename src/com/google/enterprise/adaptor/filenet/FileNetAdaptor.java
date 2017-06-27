@@ -72,6 +72,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
     config.addKey("filenet.deleteAdditionalWhereClause", "");
     config.addKey("filenet.excludedMetadata", "");
     config.addKey("filenet.includedMetadata", "");
+    config.addKey("filenet.metadataDateFormat", "yyyy-MM-dd");
     config.addKey("adaptor.namespace", DEFAULT_NAMESPACE);
   }
 
