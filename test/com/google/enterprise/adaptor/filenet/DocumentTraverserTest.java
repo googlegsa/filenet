@@ -43,6 +43,7 @@ import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
+import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.util.Id;
@@ -451,6 +452,36 @@ public class DocumentTraverserTest {
     assertFalse(response.getNamedResources().isEmpty());
     assertEquals(RecordingResponse.State.NO_CONTENT, response.getState());
     assertEquals(0, baos.size());
+  }
+
+  @Test
+  public void testGetDocContent_notFound() throws Exception {
+    Id id = new Id("{AAAAAAAA-0000-0000-0000-000000000000}");
+    DocId docId = newDocId(id);
+    MockObjectStore os = getObjectStore();
+    mockDocument(os, id.toString(), DOCUMENT_TIMESTAMP, true);
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    {
+      Request request = new MockRequest(docId);
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      RecordingResponse response = new RecordingResponse(baos);
+      traverser.getDocContent(id, request, response);
+
+      byte[] actualContent = baos.toByteArray();
+      assertEquals("sample content", new String(actualContent, UTF_8));
+    }
+
+    // Now delete the document.
+    os.deleteObject(id);
+    assertFalse(os.containsObject(ClassNames.DOCUMENT, id));
+
+    {
+      Request request = new MockRequest(docId);
+      RecordingResponse response = new RecordingResponse();
+      traverser.getDocContent(id, request, response);
+      assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
+    }
   }
 
   @SuppressWarnings("deprecation")  // For PermissionSource.MARKING

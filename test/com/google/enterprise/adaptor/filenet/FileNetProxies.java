@@ -38,6 +38,7 @@ import com.filenet.api.core.Document;
 import com.filenet.api.core.IndependentObject;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.exception.ExceptionCode;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
@@ -142,6 +143,9 @@ class FileNetProxies implements ObjectFactory {
     /** Adds an object to the store. */
     void addObject(Document object);
 
+    /** Deletes an object from the store. */
+    public void deleteObject(Id id);
+
     /** Verifies that the given object is in the store. */
     boolean containsObject(String type, Id id);
 
@@ -157,6 +161,11 @@ class FileNetProxies implements ObjectFactory {
     /** Adds an object to the store. */
     public void addObject(Document object) {
       objects.put(object.get_Id(), object);
+    }
+
+    /** Deletes an object from the store. */
+    public void deleteObject(Id id) {
+      objects.remove(id);
     }
 
     /** Verifies that the given object is in the store. */
@@ -179,8 +188,8 @@ class FileNetProxies implements ObjectFactory {
       if (ClassNames.DOCUMENT.equals(type)) {
         Document obj = objects.get(id);
         if (obj == null) {
-          throw new /*TODO*/ RuntimeException("Unable to fetch document "
-              + id);
+          // TODO(bmj): Make sure this is the correct exception.
+          throw new EngineRuntimeException(ExceptionCode.E_OBJECT_NOT_FOUND);
         } else {
           return obj;
         }
