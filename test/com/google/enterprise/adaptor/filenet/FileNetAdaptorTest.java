@@ -17,6 +17,7 @@ package com.google.enterprise.adaptor.filenet;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
+import static org.hamcrest.CoreMatchers.isA;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -32,6 +33,7 @@ import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
+import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.util.Id;
 import com.filenet.api.util.UserContext;
 
@@ -44,6 +46,7 @@ import org.junit.rules.ExpectedException;
 
 import java.io.ByteArrayOutputStream;
 import java.security.Principal;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -138,6 +141,7 @@ public class FileNetAdaptorTest {
   @Test
   public void testCheckpoint_ctor_invalidCheckpoint() {
     thrown.expect(IllegalArgumentException.class);
+    thrown.expectCause(isA(ParseException.class));
     new Checkpoint("foo=bar");
   }
 
@@ -153,7 +157,7 @@ public class FileNetAdaptorTest {
   public void testCheckpoint_ctor_longCheckpoint() throws Exception {
     SimpleDateFormat dateFmt =
         new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
-    String timestamp = dateFmt.format(new Date());
+    String timestamp = dateFmt.format(new Date()) + "+12:34";
 
     Checkpoint checkpoint = new Checkpoint("type=document;"
         + "timestamp=" + timestamp
@@ -161,6 +165,67 @@ public class FileNetAdaptorTest {
     assertEquals("document", checkpoint.type);
     assertEquals(timestamp, checkpoint.timestamp);
     assertEquals("{AAAAAAAA-0000-0000-0000-000000000000}", checkpoint.guid);
+  }
+
+  @Test
+  public void testCheckpoint_ctor_longCheckpoint_emptyTimestamp() {
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectCause(isA(ParseException.class));
+    new Checkpoint("type=document;timestamp=;guid=" + Id.ZERO_ID);
+  }
+
+  @Test
+  public void testCheckpoint_ctor_longCheckpoint_noTimezoneTimestamp() {
+    SimpleDateFormat dateFmt =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+    String timestamp = dateFmt.format(new Date());
+
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectCause(isA(ParseException.class));
+    new Checkpoint("type=document;timestamp=" + timestamp
+        + ";guid=" + Id.ZERO_ID);
+  }
+
+  @Test
+  public void testCheckpoint_ctor_longCheckpoint_javaTimezoneTimestamp() {
+    SimpleDateFormat dateFmt =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    String timestamp = dateFmt.format(new Date());
+
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectCause(isA(ParseException.class));
+    new Checkpoint("type=document;timestamp=" + timestamp
+        + ";guid=" + Id.ZERO_ID);
+  }
+
+  public void testCheckpoint_ctor_longCheckpoint_invalidTimestamp() {
+    String timestamp = new Date().toString();
+
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectCause(isA(ParseException.class));
+    new Checkpoint("type=document;timestamp=;guid=" + Id.ZERO_ID);
+  }
+
+  @Test
+  public void testCheckpoint_ctor_longCheckpoint_emptyGuid() {
+    SimpleDateFormat dateFmt =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+    String timestamp = dateFmt.format(new Date()) + "+12:34";
+
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectCause(isA(EngineRuntimeException.class));
+    new Checkpoint("type=document;timestamp=" + timestamp + ";guid=");
+  }
+
+  @Test
+  public void testCheckpoint_ctor_longCheckpoint_invalidGuid() {
+    SimpleDateFormat dateFmt =
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+    String timestamp = dateFmt.format(new Date()) + "+12:34";
+
+    thrown.expect(IllegalArgumentException.class);
+    thrown.expectCause(isA(EngineRuntimeException.class));
+    new Checkpoint("type=document;timestamp=" + timestamp + ";guid={0}");
   }
 
   @Test
@@ -192,7 +257,8 @@ public class FileNetAdaptorTest {
     SimpleDateFormat dateFmt =
         new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     Date now = new Date();
-    String checkpointStr = "type=document;timestamp=" + dateFmt.format(now)
+    String checkpointStr =
+        "type=document;timestamp=" + Checkpoint.getQueryTimeString(now)
        + ";guid={AAAAAAAA-0000-0000-0000-000000000000}";
     Checkpoint checkpoint = new Checkpoint(checkpointStr);
     assertEquals(checkpointStr, checkpoint.toString());

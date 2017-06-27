@@ -169,10 +169,16 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
   @VisibleForTesting
   static class Checkpoint {
-    private static final String ISO_8601 = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
-    private static final Pattern ZONE_PATTERN =
+    // Synchronization is used for MessageFormat because contention
+    // should be minimal for checkpoints.
+    private static final MessageFormat PARSE_TIMESTAMP = new MessageFormat(
+        "{0,date,yyyy-MM-dd'T'HH:mm:ss.SSS}{1,number,+00;-00}:{2,number,00}");
+
+    private static final String JAVA_TIMESTAMP = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+    private static final Pattern JAVA_TIMEZONE =
         Pattern.compile("(?:(Z)|([+-][0-9]{2})(:)?([0-9]{2})?)$");
     private static final String ZULU_WITH_COLON = "+00:00";
+
     private static final MessageFormat SHORT_FORMAT = new MessageFormat(
         "type={0}", US);
     private static final MessageFormat FULL_FORMAT = new MessageFormat(
@@ -186,18 +192,23 @@ public class FileNetAdaptor extends AbstractAdaptor {
       checkNotNull(checkpoint, "checkpoint may not be null");
       logger.info("Checkpoint: '" + checkpoint + "'");
       try {
-        if (checkpoint.indexOf(';') < 0) {
-          Object[] objs = SHORT_FORMAT.parse(checkpoint);
-          type = (String) objs[0];
-          timestamp = null;
-          guid = null;
-        } else {
-          Object[] objs = FULL_FORMAT.parse(checkpoint);
-          type = (String) objs[0];
-          timestamp = (String) objs[1];
-          guid = (String) objs[2];
+        synchronized (Checkpoint.class) {
+          if (checkpoint.indexOf(';') < 0) {
+            Object[] objs = SHORT_FORMAT.parse(checkpoint);
+            type = (String) objs[0];
+            timestamp = null;
+            guid = null;
+          } else {
+            Object[] objs = FULL_FORMAT.parse(checkpoint);
+            type = (String) objs[0];
+            timestamp = (String) objs[1];
+            guid = (String) objs[2];
+            // Check the format of the timestamp and GUID strings.
+            PARSE_TIMESTAMP.parse(timestamp);
+            new Id(guid);
+          }
         }
-      } catch (ParseException e) {
+      } catch (ParseException | EngineRuntimeException e) {
         throw new IllegalArgumentException(
             "Invalid Checkpoint: " + checkpoint, e);
       }
@@ -223,8 +234,11 @@ public class FileNetAdaptor extends AbstractAdaptor {
      */
     @VisibleForTesting
     static String getQueryTimeString(Date timestamp) {
-      String checkpoint = new SimpleDateFormat(ISO_8601).format(timestamp);
-      Matcher matcher = ZONE_PATTERN.matcher(checkpoint);
+      // Construct a new SimpleDateFormat each time in order to test
+      // different time zones.
+      String checkpoint =
+          new SimpleDateFormat(JAVA_TIMESTAMP).format(timestamp);
+      Matcher matcher = JAVA_TIMEZONE.matcher(checkpoint);
       if (matcher.find()) {
         String timeZone = matcher.group();
         if (timeZone.length() == 5) {
@@ -246,10 +260,12 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
     @Override
     public String toString() {
-      if (isEmpty()) {
-        return SHORT_FORMAT.format(new Object[] {type});
-      } else {
-        return FULL_FORMAT.format(new Object[] {type, timestamp, guid});
+      synchronized (Checkpoint.class) {
+        if (isEmpty()) {
+          return SHORT_FORMAT.format(new Object[] {type});
+        } else {
+          return FULL_FORMAT.format(new Object[] {type, timestamp, guid});
+        }
       }
     }
   }

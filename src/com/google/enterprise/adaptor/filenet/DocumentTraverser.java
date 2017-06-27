@@ -115,7 +115,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
       ArrayList<DocIdPusher.Record> records = new ArrayList<>();
       Date timestamp = null;
-      Id guid = null; // TODO: Id.ZERO_ID?
+      Id guid = null;
       Iterator<?> objects = objectSet.iterator();
       while (objects.hasNext()) {
         Document object = (Document) objects.next();
@@ -193,10 +193,6 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   String getCheckpointClause(Checkpoint checkPoint) {
     String c = checkPoint.timestamp;
     String uuid = checkPoint.guid;
-    // TODO(jlacey): This can't happen. Make sure of that and remove this.
-    if (uuid.equals("")) {
-      uuid = Id.ZERO_ID.toString();
-    }
     logger.log(Level.FINE, "MakeCheckpointQueryString date: {0}", c);
     logger.log(Level.FINE, "MakeCheckpointQueryString ID: {0}", uuid);
     String whereClause = " AND (("
@@ -241,8 +237,6 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     }
 
     response.setContentType(document.get_MimeType());
-    // TODO(jlacey): Use ValidatedUri. Use a percent encoder, or URI's
-    // multi-argument constructors?
     response.setDisplayUrl(
         URI.create(options.getDisplayUrl() + percentEscape(vsDocId)));
     response.setLastModified(document.get_DateLastModified());

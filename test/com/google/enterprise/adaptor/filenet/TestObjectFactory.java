@@ -15,8 +15,8 @@
 package com.google.enterprise.adaptor.filenet;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
-import com.google.enterprise.adaptor.SensitiveValueDecoder;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
 
 import com.filenet.api.collection.AccessPermissionList;
@@ -31,21 +31,14 @@ import java.util.List;
 import java.util.Map;
 
 class TestObjectFactory {
-  private static final SensitiveValueDecoder SENSITIVE_VALUE_DECODER =
-      new SensitiveValueDecoder() {
-        @Override
-        public String decodeValue(String notEncodedDuringTesting) {
-          return notEncodedDuringTesting;
-        }
-      };
-
   public static ConfigOptions newConfigOptions() {
     return newConfigOptions(ImmutableMap.<String, String>of());
   }
 
   public static ConfigOptions newConfigOptions(Map<String, String> extra) {
     FileNetAdaptor adaptor = new FileNetAdaptor();
-    Config config = new Config();
+    AdaptorContext context = ProxyAdaptorContext.getInstance();
+    Config config = context.getConfig();
     adaptor.initConfig(config);
     config.overrideKey("filenet.username", "whatever");
     config.overrideKey("filenet.password", "opensesame");
@@ -58,7 +51,7 @@ class TestObjectFactory {
     for (Map.Entry<String, String> entry : extra.entrySet()) {
       config.overrideKey(entry.getKey(), entry.getValue());
     }
-    return new ConfigOptions(config, SENSITIVE_VALUE_DECODER);
+    return new ConfigOptions(context);
   }
 
   public static AccessPermissionList getPermissions(
