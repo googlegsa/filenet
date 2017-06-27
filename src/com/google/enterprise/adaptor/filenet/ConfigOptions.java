@@ -148,21 +148,20 @@ class ConfigOptions {
 
     final String metadataDateFormat =
         config.getValue("filenet.metadataDateFormat");
-    this.metadataDateFormat =
-        new ThreadLocal<SimpleDateFormat>() {
-          @Override protected SimpleDateFormat initialValue() {
-            return new SimpleDateFormat(metadataDateFormat);
-          }
-        };
     try {
-      this.metadataDateFormat.get();
-      this.metadataDateFormat.remove();
+      new SimpleDateFormat(metadataDateFormat);
     } catch (IllegalArgumentException e) {
       throw new InvalidConfigurationException(
           "Invalid filenet.metadataDateFormat value: " + e.getMessage());
     }
     logger.log(Level.CONFIG, "filenet.metadataDateFormat: {0}",
         metadataDateFormat);
+    this.metadataDateFormat =
+        new ThreadLocal<SimpleDateFormat>() {
+          @Override protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat(metadataDateFormat);
+          }
+        };
 
     try {
       maxFeedUrls = Integer.parseInt(config.getValue("feed.maxUrls"));
