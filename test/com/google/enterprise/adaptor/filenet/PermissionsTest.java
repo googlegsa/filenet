@@ -47,13 +47,13 @@ public class PermissionsTest {
   private User user;
 
   @Before
-  public void setUp() throws Exception {
+  public void setUp() {
     perms = new AccessPermissionListMock();
     user = SecurityPrincipalMocks.createAdministratorUser();
   }
 
   @After
-  public void tearDown() throws Exception {
+  public void tearDown() {
     perms.clear();
   }
 
