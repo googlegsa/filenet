@@ -38,6 +38,7 @@ import com.filenet.api.core.Document;
 import com.filenet.api.core.IndependentObject;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.exception.ExceptionCode;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
@@ -179,8 +180,8 @@ class FileNetProxies implements ObjectFactory {
       if (ClassNames.DOCUMENT.equals(type)) {
         Document obj = objects.get(id);
         if (obj == null) {
-          throw new /*TODO*/ RuntimeException("Unable to fetch document "
-              + id);
+          throw new EngineRuntimeException(
+              ExceptionCode.DB_OBJECT_DOES_NOT_EXIST);
         } else {
           return obj;
         }
@@ -269,8 +270,8 @@ class FileNetProxies implements ObjectFactory {
         }
         return new IndependentObjectSetMock(newObjects);
       } catch (SQLException e) {
-        // TODO(jlacey): Test this with null arguments.
-        throw new EngineRuntimeException(e, null, null);
+        throw new EngineRuntimeException(ExceptionCode.DB_ERROR,
+            new Object[] { e.getErrorCode(), e.getMessage() });
       }
     }
   }

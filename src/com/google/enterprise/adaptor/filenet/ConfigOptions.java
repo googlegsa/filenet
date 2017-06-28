@@ -14,6 +14,8 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import static com.google.enterprise.adaptor.filenet.DocumentTraverser.percentEscape;
+
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.AdaptorContext;
@@ -22,6 +24,7 @@ import com.google.enterprise.adaptor.InvalidConfigurationException;
 import com.google.enterprise.adaptor.SensitiveValueDecoder;
 
 import com.filenet.api.core.ObjectStore;
+import com.filenet.api.util.Id;
 
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
@@ -56,13 +59,8 @@ class ConfigOptions {
 
   public ConfigOptions(AdaptorContext context)
       throws InvalidConfigurationException {
-    this(context.getConfig(), context.getSensitiveValueDecoder());
-  }
-
-  // TODO(jlacey): Hack for testing. Replace with mock AdaptorContext.
-  ConfigOptions(Config config,
-      SensitiveValueDecoder sensitiveValueDecoder) {
-    this.sensitiveValueDecoder = sensitiveValueDecoder;
+    Config config = context.getConfig();
+    sensitiveValueDecoder = context.getSensitiveValueDecoder();
 
     contentEngineUrl = config.getValue("filenet.contentEngineUrl");
     logger.log(Level.CONFIG, "filenet.contentEngineUrl: {0}", contentEngineUrl);
@@ -98,6 +96,7 @@ class ConfigOptions {
     }
     logger.log(Level.CONFIG, "filenet.objectFactory: {0}", objectFactoryName);
 
+    // TODO(jlacey): Replace this with a MessageFormat pattern.
     String workplaceUrl = config.getValue("filenet.displayUrl");
     if (workplaceUrl.endsWith("/getContent/")) {
       workplaceUrl = workplaceUrl.substring(0, workplaceUrl.length() - 1);
@@ -113,7 +112,8 @@ class ConfigOptions {
     displayUrl = workplaceUrl;
     logger.log(Level.CONFIG, "displayUrl: {0}", displayUrl);
     try {
-      new ValidatedUri(displayUrl + "0").logUnreachableHost();
+      new ValidatedUri(displayUrl + percentEscape(Id.ZERO_ID.toString()))
+          .logUnreachableHost();
     } catch (URISyntaxException e) {
       throw new InvalidConfigurationException(
           "Invalid displayUrl: " + e.getMessage());
