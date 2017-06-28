@@ -67,7 +67,7 @@ class TestObjectFactory {
 
   // TODO(tdnguyen): Combine this method with similar methods in
   // PermissionsTest.
-  public static AccessPermission newPermission(String granteeName,
+  private static AccessPermission newPermission(String granteeName,
       SecurityPrincipalType principalType, AccessType accessType,
       int accessMask, int inheritableDepth, PermissionSource permSrc) {
     AccessPermissionMock perm = new AccessPermissionMock(permSrc);
@@ -90,7 +90,7 @@ class TestObjectFactory {
     return perms;
   }
 
-  public static List<AccessPermission> generatePermissions(int allowUserCount,
+  private static List<AccessPermission> generatePermissions(int allowUserCount,
           int denyUserCount, int allowGroupCount, int denyGroupCount,
           int accessMask, int inheritableDepth, PermissionSource permSrc) {
     String prefix = permSrc.toString();
@@ -110,7 +110,7 @@ class TestObjectFactory {
     return aces;
   }
 
-  public static List<AccessPermission> generatePermissions(
+  private static List<AccessPermission> generatePermissions(
       String granteePrefix, int count, SecurityPrincipalType principalType,
       AccessType accessType, int accessMask, int inheritableDepth,
       PermissionSource permSrc) {

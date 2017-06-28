@@ -23,7 +23,6 @@ import com.filenet.api.property.PropertyFilter;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,41 +31,6 @@ class FileUtil {
       Logger.getLogger(FileUtil.class.getName());
 
   private FileUtil() {
-  }
-
-  /**
-   * getShortName takes a string as parameter and parses it to get the
-   * shortname. It supports User Principle Name (UPN) and Full
-   * Distinguished Name (DN) format.
-   *
-   * @param longName Username in the form of UPN or Full DN format.
-   * @return ShortName of the Username (Which may be in one of the
-   *     form i.e. UPN or Full DN format.)
-   */
-  public static String getShortName(String longName) {
-    StringTokenizer strtok = new StringTokenizer(longName, ",");
-    String shortUserName = null;
-    if (strtok.countTokens() > 1) {
-      while (strtok != null && strtok.hasMoreTokens()) {
-        String mytok1 = strtok.nextToken();
-        if (mytok1 != null) {
-          //filter for the shortened name
-          StringTokenizer innerToken = new StringTokenizer(mytok1, "=");
-          if (innerToken != null && innerToken.countTokens() == 2) {
-            String key = innerToken.nextToken();
-            if (key != null) {
-              if (key.equalsIgnoreCase("cn") || key.equalsIgnoreCase("uid")) {
-                shortUserName = innerToken.nextToken();
-                break;
-              }
-            }
-          }
-        }
-      }
-    } else if (longName.contains("@")) {
-      shortUserName = longName.substring(0, longName.indexOf("@"));
-    }
-    return shortUserName;
   }
 
   /** Creates a default property filter for document. */
@@ -116,7 +80,7 @@ class FileUtil {
    */
   public static String convertDn(String name) {
     if (name.toLowerCase().startsWith("cn=")) {
-      String domainName = getCNFromDN(name) + "@" + getDomain(name);
+      String domainName = getCommonName(name) + "@" + getDomain(name);
       logger.log(Level.FINEST, "Convert DN {0} to {1}",
           new Object[] {name, domainName});
       return domainName;
@@ -129,7 +93,7 @@ class FileUtil {
    * This method is copied from
    * com/google/enterprise/connector/dctm/IdentityUtil
    */
-  public static String getCNFromDN(String dn) {
+  private static String getCommonName(String dn) {
     if (Strings.isNullOrEmpty(dn)) {
       return null;
     }
@@ -161,7 +125,7 @@ class FileUtil {
    * @return domain in the form abc.com, or null if the input was invalid or did
    * not contain the domain attribute
    */
-  public static String getDomain(String dn) {
+  private static String getDomain(String dn) {
     if (Strings.isNullOrEmpty(dn)) {
       return null;
     }

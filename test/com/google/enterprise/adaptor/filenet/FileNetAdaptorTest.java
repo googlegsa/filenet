@@ -466,20 +466,6 @@ public class FileNetAdaptorTest {
   }
 
   @Test
-  public void testInit_deleteAdditionalWhereClause() throws Exception {
-    config.overrideKey("filenet.deleteAdditionalWhereClause", "and foo = bar");
-    adaptor.init(context);
-    assertEquals("and foo = bar",
-        getConfigOptions().getDeleteAdditionalWhereClause());
-  }
-
-  @Test
-  public void testInit_deleteAdditionalWhereClause_default() throws Exception {
-    adaptor.init(context);
-    assertEquals("", getConfigOptions().getDeleteAdditionalWhereClause());
-  }
-
-  @Test
   public void testInit_excludedMetadata() throws Exception {
     config.overrideKey("filenet.excludedMetadata", "foo, bar, baz");
     adaptor.init(context);
