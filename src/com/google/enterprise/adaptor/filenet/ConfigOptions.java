@@ -50,7 +50,6 @@ class ConfigOptions {
   private final String displayUrl;
   private final boolean markAllDocsAsPublic;
   private final String additionalWhereClause;
-  private final String deleteAdditionalWhereClause;
   private final Set<String> includedMetadata;
   private final Set<String> excludedMetadata;
   private final ThreadLocal<SimpleDateFormat> metadataDateFormat;
@@ -131,10 +130,6 @@ class ConfigOptions {
     additionalWhereClause = config.getValue("filenet.additionalWhereClause");
     logger.log(Level.CONFIG, "filenet.additionalWhereClause: {0}",
         additionalWhereClause);
-    deleteAdditionalWhereClause =
-        config.getValue("filenet.deleteAdditionalWhereClause");
-    logger.log(Level.CONFIG, "filenet.deleteAdditionalWhereClause: {0}",
-        deleteAdditionalWhereClause);
 
     // TODO(bmj): validate column names?
     excludedMetadata = ImmutableSet.copyOf(
@@ -215,10 +210,6 @@ class ConfigOptions {
 
   public String getAdditionalWhereClause() {
     return additionalWhereClause;
-  }
-
-  public String getDeleteAdditionalWhereClause() {
-    return deleteAdditionalWhereClause;
   }
 
   public Set<String> getExcludedMetadata() {

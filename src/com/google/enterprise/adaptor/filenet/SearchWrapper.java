@@ -28,7 +28,7 @@ import java.util.logging.Logger;
  * is usable by the mock tests, but since we always use full query
  * strings, it does not add value for the callers.
  */
-public class SearchWrapper {
+class SearchWrapper {
   private static final Logger logger =
       Logger.getLogger(SearchWrapper.class.getName());
 
@@ -58,7 +58,7 @@ public class SearchWrapper {
     this(null);
   }
 
-  SearchWrapper(SearchScope search) {
+  public SearchWrapper(SearchScope search) {
     this.search = search;
   }
 

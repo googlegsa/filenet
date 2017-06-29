@@ -276,10 +276,6 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     }
   }
 
-  public static final String SEC_MARKING_POSTFIX = "MARK";
-  public static final String SEC_POLICY_POSTFIX = "TMPL";
-  public static final String SEC_FOLDER_POSTFIX = "FLDR";
-
   private List<UserPrincipal> getUserPrincipals(Set<String> names,
       String namespace) {
     ArrayList<UserPrincipal> list = new ArrayList<>();
@@ -297,6 +293,10 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     }
     return list;
   }
+
+  private static final String SEC_MARKING_POSTFIX = "MARK";
+  private static final String SEC_POLICY_POSTFIX = "TMPL";
+  private static final String SEC_FOLDER_POSTFIX = "FLDR";
 
   private void processPermissions(DocId docId,
       ActiveMarkingList activeMarkings, Permissions.Acl permissions,
