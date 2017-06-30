@@ -701,13 +701,13 @@ public class PermissionsTest {
     Permissions testPerms = new Permissions(new AccessPermissionListMock());
     Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
 
-    assertEquals(ImmutableSet.<String>of(AUTHENTICATED_USERS),
+    assertEquals(ImmutableSet.of(AUTHENTICATED_USERS),
         acl.getAllowGroups(PermissionSource.MARKING));
-    assertEquals(ImmutableSet.<String>of(AUTHENTICATED_USERS),
+    assertEquals(ImmutableSet.of(AUTHENTICATED_USERS),
         acl.getAllowGroups());
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyGroups());
+    assertEquals(ImmutableSet.of(), acl.getAllowUsers());
+    assertEquals(ImmutableSet.of(), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of(), acl.getDenyGroups());
   }
 
   @Test
@@ -715,10 +715,10 @@ public class PermissionsTest {
     Permissions testPerms = new Permissions(new AccessPermissionListMock());
     Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
 
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowGroups());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyGroups());
+    assertEquals(ImmutableSet.of(), acl.getAllowUsers());
+    assertEquals(ImmutableSet.of(), acl.getAllowGroups());
+    assertEquals(ImmutableSet.of(), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of(), acl.getDenyGroups());
   }
 
   @Test
@@ -726,10 +726,10 @@ public class PermissionsTest {
     Permissions testPerms = new Permissions(new AccessPermissionListMock());
     Permissions.Acl acl = testPerms.getMarkingAcl(~AccessRight.READ_AS_INT);
 
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowGroups());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyGroups());
+    assertEquals(ImmutableSet.of(), acl.getAllowUsers());
+    assertEquals(ImmutableSet.of(), acl.getAllowGroups());
+    assertEquals(ImmutableSet.of(), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of(), acl.getDenyGroups());
   }
 
   @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
@@ -740,13 +740,13 @@ public class PermissionsTest {
         TestObjectFactory.getPermissions(PermissionSource.MARKING));
     Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
 
-    assertEquals(ImmutableSet.<String>of(AUTHENTICATED_USERS),
+    assertEquals(ImmutableSet.of(AUTHENTICATED_USERS),
         acl.getAllowGroups(PermissionSource.MARKING));
-    assertEquals(ImmutableSet.<String>of(AUTHENTICATED_USERS),
+    assertEquals(ImmutableSet.of(AUTHENTICATED_USERS),
         acl.getAllowGroups());
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyGroups());
+    assertEquals(ImmutableSet.of(), acl.getAllowUsers());
+    assertEquals(ImmutableSet.of(), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of(), acl.getDenyGroups());
   }
 
   @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
@@ -757,10 +757,10 @@ public class PermissionsTest {
         TestObjectFactory.getPermissions(PermissionSource.MARKING));
     Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
 
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowGroups());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyGroups());
+    assertEquals(ImmutableSet.of(), acl.getAllowUsers());
+    assertEquals(ImmutableSet.of(), acl.getAllowGroups());
+    assertEquals(ImmutableSet.of(), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of(), acl.getDenyGroups());
   }
 
   @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
@@ -771,10 +771,10 @@ public class PermissionsTest {
         TestObjectFactory.getPermissions(PermissionSource.MARKING));
     Permissions.Acl acl = testPerms.getMarkingAcl(~AccessRight.READ_AS_INT);
 
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getAllowGroups());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyUsers());
-    assertEquals(ImmutableSet.<String>of(), acl.getDenyGroups());
+    assertEquals(ImmutableSet.of(), acl.getAllowUsers());
+    assertEquals(ImmutableSet.of(), acl.getAllowGroups());
+    assertEquals(ImmutableSet.of(), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of(), acl.getDenyGroups());
   }
 
   @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
@@ -788,16 +788,16 @@ public class PermissionsTest {
     Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
 
     assertEquals(
-        ImmutableSet.<String>of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+        ImmutableSet.of("MARKING_allow_user_0", "MARKING_allow_user_1"),
         acl.getAllowUsers());
     assertEquals(
-        ImmutableSet.<String>of("MARKING_allow_group_0", AUTHENTICATED_USERS),
+        ImmutableSet.of("MARKING_allow_group_0", AUTHENTICATED_USERS),
         acl.getAllowGroups());
     assertEquals(
-        ImmutableSet.<String>of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+        ImmutableSet.of("MARKING_deny_user_0", "MARKING_deny_user_1"),
         acl.getDenyUsers());
     assertEquals(
-        ImmutableSet.<String>of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+        ImmutableSet.of("MARKING_deny_group_0", "MARKING_deny_group_1"),
         acl.getDenyGroups());
   }
 
@@ -812,16 +812,15 @@ public class PermissionsTest {
     Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
 
     assertEquals(
-        ImmutableSet.<String>of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+        ImmutableSet.of("MARKING_allow_user_0", "MARKING_allow_user_1"),
         acl.getAllowUsers());
-    assertEquals(
-        ImmutableSet.<String>of("MARKING_allow_group_0"),
+    assertEquals(ImmutableSet.of("MARKING_allow_group_0"),
         acl.getAllowGroups());
     assertEquals(
-        ImmutableSet.<String>of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+        ImmutableSet.of("MARKING_deny_user_0", "MARKING_deny_user_1"),
         acl.getDenyUsers());
     assertEquals(
-        ImmutableSet.<String>of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+        ImmutableSet.of("MARKING_deny_group_0", "MARKING_deny_group_1"),
         acl.getDenyGroups());
   }
 
@@ -836,16 +835,14 @@ public class PermissionsTest {
     Permissions.Acl acl = testPerms.getMarkingAcl(AccessRight.READ_AS_INT);
 
     assertEquals(
-        ImmutableSet.<String>of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+        ImmutableSet.of("MARKING_allow_user_0", "MARKING_allow_user_1"),
         acl.getAllowUsers());
-    assertEquals(
-        ImmutableSet.<String>of("MARKING_allow_group_0"),
+    assertEquals(ImmutableSet.of("MARKING_allow_group_0"),
         acl.getAllowGroups());
-    assertEquals(
-        ImmutableSet.<String>of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+    assertEquals(ImmutableSet.of("MARKING_deny_user_0", "MARKING_deny_user_1"),
         acl.getDenyUsers());
     assertEquals(
-        ImmutableSet.<String>of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+        ImmutableSet.of("MARKING_deny_group_0", "MARKING_deny_group_1"),
         acl.getDenyGroups());
   }
 
@@ -873,18 +870,11 @@ public class PermissionsTest {
     Permissions testPerms = new Permissions(perms);
     Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
 
-    assertEquals(
-        ImmutableSet.<String>of("allowUser1"),
-        acl.getAllowUsers());
-    assertEquals(
-        ImmutableSet.<String>of("allowGroup2", AUTHENTICATED_USERS),
+    assertEquals(ImmutableSet.of("allowUser1"), acl.getAllowUsers());
+    assertEquals(ImmutableSet.of("allowGroup2", AUTHENTICATED_USERS),
         acl.getAllowGroups());
-    assertEquals(
-        ImmutableSet.<String>of("denyUser2"),
-        acl.getDenyUsers());
-    assertEquals(
-        ImmutableSet.<String>of("denyGroup1"),
-        acl.getDenyGroups());
+    assertEquals(ImmutableSet.of("denyUser2"), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of("denyGroup1"), acl.getDenyGroups());
   }
 
   @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
@@ -911,17 +901,11 @@ public class PermissionsTest {
     Permissions testPerms = new Permissions(perms);
     Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
 
-    assertEquals(
-        ImmutableSet.<String>of("allowUser1", "allowUser2"),
+    assertEquals(ImmutableSet.of("allowUser1", "allowUser2"),
         acl.getAllowUsers());
-    assertEquals(
-        ImmutableSet.<String>of("allowGroup2"),
-        acl.getAllowGroups());
-    assertEquals(
-        ImmutableSet.<String>of("denyUser2"),
-        acl.getDenyUsers());
-    assertEquals(
-        ImmutableSet.<String>of("denyGroup1", "denyGroup2"),
+    assertEquals(ImmutableSet.of("allowGroup2"), acl.getAllowGroups());
+    assertEquals(ImmutableSet.of("denyUser2"), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of("denyGroup1", "denyGroup2"),
         acl.getDenyGroups());
   }
 
@@ -949,17 +933,11 @@ public class PermissionsTest {
     Permissions testPerms = new Permissions(perms);
     Permissions.Acl acl = testPerms.getMarkingAcl(AccessRight.READ_AS_INT);
 
-    assertEquals(
-        ImmutableSet.<String>of("allowUser1", "allowUser2"),
+    assertEquals(ImmutableSet.of("allowUser1", "allowUser2"),
         acl.getAllowUsers());
-    assertEquals(
-        ImmutableSet.<String>of("allowGroup2"),
-        acl.getAllowGroups());
-    assertEquals(
-        ImmutableSet.<String>of("denyUser2"),
-        acl.getDenyUsers());
-    assertEquals(
-        ImmutableSet.<String>of("denyGroup1", "denyGroup2"),
+    assertEquals(ImmutableSet.of("allowGroup2"), acl.getAllowGroups());
+    assertEquals(ImmutableSet.of("denyUser2"), acl.getDenyUsers());
+    assertEquals(ImmutableSet.of("denyGroup1", "denyGroup2"),
         acl.getDenyGroups());
   }
 }
