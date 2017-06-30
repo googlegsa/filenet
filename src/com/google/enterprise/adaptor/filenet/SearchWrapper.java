@@ -38,14 +38,11 @@ class SearchWrapper {
   /** Do not filter the results or deference object properties. */
   public static final PropertyFilter NO_FILTER = null;
 
-  /** Return all results. */
-  public static final Boolean ALL_ROWS = Boolean.TRUE;
+  /** Page through larger, sorted results. */
+  public static final Boolean CONTINUABLE = Boolean.TRUE;
 
-  /**
-   * Return a single page of results, which might be less than the
-   * page size.
-   */
-  public static final Boolean FIRST_ROWS = Boolean.FALSE;
+  /** Do not page through small or unsorted results. */
+  public static final Boolean NOT_CONTINUABLE = Boolean.FALSE;
 
   static {
     dereferenceObjects.setMaxRecursion(1);

@@ -20,6 +20,7 @@ import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint.ge
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockActiveMarking;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
+import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocumentNotFound;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.assertEquals;
@@ -450,6 +451,43 @@ public class DocumentTraverserTest {
     assertNotNull(response.getAcl());
     assertFalse(response.getNamedResources().isEmpty());
     assertEquals(RecordingResponse.State.NO_CONTENT, response.getState());
+    assertEquals(0, baos.size());
+  }
+
+  @Test
+  public void testGetDocContent_notFound_fetchObjects() throws Exception {
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId, new Date());
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    RecordingResponse response = new RecordingResponse(baos);
+    traverser.getDocContent(new Id(id), request, response);
+
+    assertNull(response.getAcl());
+    assertTrue(response.getNamedResources().isEmpty());
+    assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
+    assertEquals(0, baos.size());
+  }
+
+  @Test
+  public void testGetDocContent_notFound_refresh() throws Exception {
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+    mockDocumentNotFound(os, id);
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId, new Date());
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    RecordingResponse response = new RecordingResponse(baos);
+    traverser.getDocContent(new Id(id), request, response);
+
+    assertNull(response.getAcl());
+    assertTrue(response.getNamedResources().isEmpty());
+    assertEquals(RecordingResponse.State.NOT_FOUND, response.getState());
     assertEquals(0, baos.size());
   }
 

@@ -15,6 +15,7 @@
 package com.google.enterprise.adaptor.filenet;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.eq;
 import static org.easymock.EasyMock.expect;
@@ -35,9 +36,11 @@ import com.filenet.api.core.ObjectStore;
 import com.filenet.api.core.VersionSeries;
 import com.filenet.api.events.DeletionEvent;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.exception.ExceptionCode;
 import com.filenet.api.property.Properties;
 import com.filenet.api.property.Property;
 import com.filenet.api.property.PropertyDateTime;
+import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.property.PropertyFloat64;
 import com.filenet.api.property.PropertyId;
 import com.filenet.api.property.PropertyString;
@@ -151,6 +154,8 @@ class ObjectMocks {
     expect(properties.toArray()).andStubReturn(props);
 
     Document doc = createMock(Document.class);
+    doc.refresh(anyObject(PropertyFilter.class));
+    expectLastCall().asStub();
     expect(doc.get_Id()).andStubReturn(newId(guid));
     expect(doc.get_VersionSeries()).andStubReturn(vs);
     expect(doc.get_DateLastModified()).andStubReturn(parseTime(timeStr));
@@ -168,6 +173,18 @@ class ObjectMocks {
     expect(doc.get_ActiveMarkings()).andStubReturn(activeMarkings);
     expect(doc.getProperties()).andStubReturn(properties);
     replay(vs, properties, doc);
+    objectStore.addObject(doc);
+    return doc;
+  }
+
+  public static Document mockDocumentNotFound(MockObjectStore objectStore,
+      String guid) {
+    Document doc = createMock(Document.class);
+    doc.refresh(anyObject(PropertyFilter.class));
+    expectLastCall().andThrow(
+        new EngineRuntimeException(ExceptionCode.E_OBJECT_NOT_FOUND));
+    expect(doc.get_Id()).andStubReturn(newId(guid));
+    replay(doc);
     objectStore.addObject(doc);
     return doc;
   }

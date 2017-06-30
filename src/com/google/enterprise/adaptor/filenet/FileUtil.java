@@ -51,7 +51,6 @@ class FileUtil {
     filterSet.add(PropertyNames.MIME_TYPE);
     filterSet.add(PropertyNames.VERSION_SERIES);
     filterSet.add(PropertyNames.VERSION_SERIES_ID);
-    filterSet.add(PropertyNames.RELEASED_VERSION);
     filterSet.add(PropertyNames.OWNER);
     filterSet.add(PropertyNames.ACTIVE_MARKINGS);
     filterSet.add(PropertyNames.PERMISSIONS);
