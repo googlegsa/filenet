@@ -430,8 +430,6 @@ public class DocumentTraverserTest {
     String markingId2 = "{AAAAAAAA-0002-0000-0000-000000000000}";
     DocId docId = newDocId(new Id(id));
     MockObjectStore os = getObjectStore();
-    int markingAccessMask = AccessRight.USE_MARKING_AS_INT
-        | AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
 
     mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
         1000d, "text/plain",
@@ -441,14 +439,11 @@ public class DocumentTraverserTest {
             PermissionSource.SOURCE_PARENT),
         new ActiveMarkingListMock(
             mockActiveMarking("marking1", markingId1,
-                AccessLevel.FULL_CONTROL_AS_INT,
-                TestObjectFactory.newPermissionList(
-                    TestObjectFactory.generatePermissions(1, 1, 1, 1,
-                        markingAccessMask, 0, PermissionSource.MARKING))),
-            mockActiveMarking("marking2", markingId2, AccessRight.READ_AS_INT,
-                TestObjectFactory.newPermissionList(
-                    TestObjectFactory.generatePermissions(1, 1, 1, 1,
-                        markingAccessMask, 0, PermissionSource.MARKING)))));
+                TestObjectFactory.getMarkingPermissions(),
+                AccessLevel.FULL_CONTROL_AS_INT),
+            mockActiveMarking("marking2", markingId2,
+                TestObjectFactory.getMarkingPermissions(),
+                AccessRight.READ_AS_INT)));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
     Request request = new MockRequest(docId);

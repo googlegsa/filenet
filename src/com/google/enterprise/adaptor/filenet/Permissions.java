@@ -64,7 +64,7 @@ class Permissions {
   public static final String AUTHENTICATED_USERS = "#AUTHENTICATED-USERS";
   private static final String CREATOR_OWNER = "#CREATOR-OWNER";
 
-  private static final int VIEW_ACCESS_RIGHTS =
+  public static final int VIEW_ACCESS_RIGHTS =
       AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
   private static final int USE_MARKING = AccessRight.USE_MARKING_AS_INT;
 
@@ -339,10 +339,10 @@ class Permissions {
         allowGroups.put(PermissionSource.MARKING, AUTHENTICATED_USERS);
       } else {
         // If we added a denyGroups of AUTHENTICATED_USERS, the ACL would
-        // end up denying everybody, since the GSA ACL model would not reflect
+        // end up denying everybody, since the ACL chain would not reflect
         // how use rights trump the constraint mask. However, AND_BOTH_PERMIT
         // allows this to work itself out, since anyone not explicitly
-        // granted ALLOW rights, would be denied anyway.
+        // granted ALLOW rights, will be denied anyway.
       }
     }
 
