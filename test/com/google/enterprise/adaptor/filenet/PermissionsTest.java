@@ -782,22 +782,17 @@ public class PermissionsTest {
   public void testMarkingAcl_allUseMarking_allowConstraintMask()
       throws Exception {
     Permissions testPerms = new Permissions(
-        TestObjectFactory.newPermissionList(
-            TestObjectFactory.generatePermissions(2, 2, 1, 2,
-                AccessRight.USE_MARKING_AS_INT, 0, PermissionSource.MARKING)));
+        TestObjectFactory.getMarkingPermissions());
     Permissions.Acl acl = testPerms.getMarkingAcl(~VIEW_ACCESS_RIGHTS);
 
-    assertEquals(
-        ImmutableSet.of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+    assertEquals(ImmutableSet.of("MARKING_allow_user_0"),
         acl.getAllowUsers());
     assertEquals(
         ImmutableSet.of("MARKING_allow_group_0", AUTHENTICATED_USERS),
         acl.getAllowGroups());
-    assertEquals(
-        ImmutableSet.of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+    assertEquals(ImmutableSet.of("MARKING_deny_user_0"),
         acl.getDenyUsers());
-    assertEquals(
-        ImmutableSet.of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+    assertEquals(ImmutableSet.of("MARKING_deny_group_0"),
         acl.getDenyGroups());
   }
 
@@ -806,21 +801,16 @@ public class PermissionsTest {
   public void testMarkingAcl_allUseMarking_denyConstraintMask()
       throws Exception {
     Permissions testPerms = new Permissions(
-        TestObjectFactory.newPermissionList(
-            TestObjectFactory.generatePermissions(2, 2, 1, 2,
-                AccessRight.USE_MARKING_AS_INT, 0, PermissionSource.MARKING)));
+        TestObjectFactory.getMarkingPermissions());
     Permissions.Acl acl = testPerms.getMarkingAcl(VIEW_ACCESS_RIGHTS);
 
-    assertEquals(
-        ImmutableSet.of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+    assertEquals(ImmutableSet.of("MARKING_allow_user_0"),
         acl.getAllowUsers());
     assertEquals(ImmutableSet.of("MARKING_allow_group_0"),
         acl.getAllowGroups());
-    assertEquals(
-        ImmutableSet.of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+    assertEquals(ImmutableSet.of("MARKING_deny_user_0"),
         acl.getDenyUsers());
-    assertEquals(
-        ImmutableSet.of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+    assertEquals(ImmutableSet.of("MARKING_deny_group_0"),
         acl.getDenyGroups());
   }
 
@@ -829,20 +819,16 @@ public class PermissionsTest {
   public void testMarkingAcl_allUseMarking_partialConstraintMask()
       throws Exception {
     Permissions testPerms = new Permissions(
-        TestObjectFactory.newPermissionList(
-            TestObjectFactory.generatePermissions(2, 2, 1, 2,
-                AccessRight.USE_MARKING_AS_INT, 0, PermissionSource.MARKING)));
+        TestObjectFactory.getMarkingPermissions());
     Permissions.Acl acl = testPerms.getMarkingAcl(AccessRight.READ_AS_INT);
 
-    assertEquals(
-        ImmutableSet.of("MARKING_allow_user_0", "MARKING_allow_user_1"),
+    assertEquals(ImmutableSet.of("MARKING_allow_user_0"),
         acl.getAllowUsers());
     assertEquals(ImmutableSet.of("MARKING_allow_group_0"),
         acl.getAllowGroups());
-    assertEquals(ImmutableSet.of("MARKING_deny_user_0", "MARKING_deny_user_1"),
+    assertEquals(ImmutableSet.of("MARKING_deny_user_0"),
         acl.getDenyUsers());
-    assertEquals(
-        ImmutableSet.of("MARKING_deny_group_0", "MARKING_deny_group_1"),
+    assertEquals(ImmutableSet.of("MARKING_deny_group_0"),
         acl.getDenyGroups());
   }
 
