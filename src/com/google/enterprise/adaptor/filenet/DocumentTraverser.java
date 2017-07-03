@@ -264,9 +264,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
     if (!options.markAllDocsAsPublic()) {
       ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
-      Permissions.Acl permissions =
-          new Permissions(document.get_Permissions(), document.get_Owner())
-          .getAcl();
+      Permissions permissions = new Permissions(document.get_Permissions());
       processPermissions(docId, activeMarkings, permissions, response);
     }
 
@@ -333,7 +331,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   private static final String SEC_FOLDER_POSTFIX = "FLDR";
 
   private void processPermissions(DocId docId,
-      ActiveMarkingList activeMarkings, Permissions.Acl permissions,
+      ActiveMarkingList activeMarkings, Permissions permissions,
       Response response) {
     String fragment = null;
 
@@ -345,9 +343,8 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     while (iterator.hasNext()) {
       ActiveMarking activeMarking = (ActiveMarking) iterator.next();
       Marking marking = activeMarking.get_Marking();
-      Permissions.Acl markingPerms =
-          new Permissions(marking.get_Permissions())
-          .getMarkingAcl(marking.get_ConstraintMask());
+      Permissions markingPerms = new Permissions(marking.get_Permissions(),
+          marking.get_ConstraintMask());
       Acl markingAcl = createAcl(docId, fragment,
           Acl.InheritanceType.AND_BOTH_PERMIT,
           markingPerms.getAllowUsers(), markingPerms.getDenyUsers(),
@@ -396,7 +393,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     response.setAcl(docAcl);
   }
 
-  private Acl createAcl(DocId docId, Permissions.Acl permissions,
+  private Acl createAcl(DocId docId, Permissions permissions,
       PermissionSource permSrc, String parentFragment) {
     return createAcl(docId, parentFragment, Acl.InheritanceType.CHILD_OVERRIDES,
         permissions.getAllowUsers(permSrc),
