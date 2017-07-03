@@ -69,9 +69,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Responsible for: 1. Construction of FileNet SQL queries for adding and
- * deleting index of documents to GSA. 2. Execution of the SQL query constructed
- * in step 1. 3. Retrieve the results of step 2 and wrap it in DocumentList
+ * Fetches batches of documents from checkpoints, and individual
+ * documents given their VersionSeries ID. The VersionSeries ID is
+ * used instead of the Document ID because it remains the same for all
+ * versions of a document.
  */
 class DocumentTraverser implements FileNetAdaptor.Traverser {
   private static final Logger logger =
