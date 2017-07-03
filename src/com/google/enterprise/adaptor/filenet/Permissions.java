@@ -49,7 +49,8 @@ class Permissions {
       HashMultimap.create();
 
   /** Collect Regular (Non-Marking) Permissions. */
-  public Permissions(AccessPermissionList perms) {
+  public Permissions(AccessPermissionList perms, String owner) {
+    // TODO(bmj): Implement owners in ACLs.
     Iterator<?> iter = perms.iterator();
     while (iter.hasNext()) {
       AccessPermission perm = (AccessPermission) iter.next();

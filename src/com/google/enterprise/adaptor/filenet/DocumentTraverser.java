@@ -264,7 +264,8 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
     if (!options.markAllDocsAsPublic()) {
       ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
-      Permissions permissions = new Permissions(document.get_Permissions());
+      Permissions permissions =
+          new Permissions(document.get_Permissions(), document.get_Owner());
       processPermissions(docId, activeMarkings, permissions, response);
     }
 

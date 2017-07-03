@@ -51,7 +51,8 @@ public class PermissionsTest {
 
   @Test
   public void testEmptyPermissionList() {
-    Permissions emptyPerms = new Permissions(new AccessPermissionListMock());
+    Permissions emptyPerms =
+        new Permissions(new AccessPermissionListMock(), null);
     assertEquals(0, emptyPerms.getAllowUsers().size());
     assertEquals(0, emptyPerms.getAllowGroups().size());
     assertEquals(0, emptyPerms.getDenyUsers().size());
@@ -109,7 +110,7 @@ public class PermissionsTest {
   @Test
   public void testEmptyAllowUsers() {
     populateAces(10, false, true, true, true, PermissionSource.SOURCE_DIRECT);
-    Permissions testPerms = new Permissions(perms);
+    Permissions testPerms = new Permissions(perms, null);
     assertEquals(0, testPerms.getAllowUsers().size());
     assertEquals(10, testPerms.getDenyUsers().size());
     assertEquals(10, testPerms.getAllowGroups().size());
@@ -119,7 +120,7 @@ public class PermissionsTest {
   @Test
   public void testEmptyDenyUsers() {
     populateAces(10, true, false, true, true, PermissionSource.SOURCE_DIRECT);
-    Permissions testPerms = new Permissions(perms);
+    Permissions testPerms = new Permissions(perms, null);
     assertEquals(10, testPerms.getAllowUsers().size());
     assertEquals(0, testPerms.getDenyUsers().size());
     assertEquals(10, testPerms.getAllowGroups().size());
@@ -129,7 +130,7 @@ public class PermissionsTest {
   @Test
   public void testEmptyAllowGroups() {
     populateAces(10, true, true, false, true, PermissionSource.SOURCE_DIRECT);
-    Permissions testPerms = new Permissions(perms);
+    Permissions testPerms = new Permissions(perms, null);
     assertEquals(10, testPerms.getAllowUsers().size());
     assertEquals(10, testPerms.getDenyUsers().size());
     assertEquals(0, testPerms.getAllowGroups().size());
@@ -139,7 +140,7 @@ public class PermissionsTest {
   @Test
   public void testEmptyDenyGroups() {
     populateAces(10, true, true, true, false, PermissionSource.SOURCE_DIRECT);
-    Permissions testPerms = new Permissions(perms);
+    Permissions testPerms = new Permissions(perms, null);
     assertEquals(10, testPerms.getAllowUsers().size());
     assertEquals(10, testPerms.getAllowGroups().size());
     assertEquals(10, testPerms.getDenyUsers().size());
@@ -159,7 +160,7 @@ public class PermissionsTest {
         VIEW_ACCESS_RIGHTS, 0, permSrcs);
     Collections.shuffle(perms);
 
-    return new Permissions(perms);
+    return new Permissions(perms, null);
   }
 
   private void assertSetContains(Set<String> theSet, String prefix, int size) {
