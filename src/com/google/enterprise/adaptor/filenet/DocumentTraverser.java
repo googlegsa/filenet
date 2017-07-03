@@ -30,7 +30,6 @@ import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 
 import com.filenet.api.collection.ActiveMarkingList;
 import com.filenet.api.collection.IndependentObjectSet;
-import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
@@ -70,9 +69,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Responsible for: 1. Construction of FileNet SQL queries for adding and
- * deleting index of documents to GSA. 2. Execution of the SQL query constructed
- * in step 1. 3. Retrieve the results of step 2 and wrap it in DocumentList
+ * Fetches batches of documents from checkpoints, and individual
+ * documents given their VersionSeries ID. The VersionSeries ID is
+ * used instead of the Document ID because it remains the same for all
+ * versions of a document.
  */
 class DocumentTraverser implements FileNetAdaptor.Traverser {
   private static final Logger logger =
@@ -108,7 +108,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
           query);
       IndependentObjectSet objectSet = search.fetchObjects(query,
           maxRecords, SearchWrapper.dereferenceObjects,
-          SearchWrapper.ALL_ROWS);
+          SearchWrapper.CONTINUABLE);
       logger.fine(objectSet.isEmpty()
           ? "Found no documents to add or update"
           : "Found documents to add or update");
@@ -120,8 +120,11 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       while (objects.hasNext()) {
         Document object = (Document) objects.next();
         timestamp = object.get_DateLastModified();
-        guid = object.get_Id(); // TODO: Use the VersionSeries ID.
-        records.add(new DocIdPusher.Record.Builder(newDocId(guid)).build());
+        guid = object.get_Id();
+        Id vsId = object.get_VersionSeries().get_Id();
+        logger.log(Level.FINER, "Document ID: {0}", guid);
+        logger.log(Level.FINER, "VersionSeries ID: {0}", vsId);
+        records.add(new DocIdPusher.Record.Builder(newDocId(vsId)).build());
       }
       // TODO(jlacey): if (records.size() == maxRecords)
       if (timestamp != null) {
@@ -153,7 +156,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     query.append(",");
     query.append(PropertyNames.DATE_LAST_MODIFIED);
     query.append(",");
-    query.append(PropertyNames.RELEASED_VERSION);
+    query.append(PropertyNames.VERSION_SERIES);
     query.append(" FROM ");
     query.append(GuidConstants.Class_Document);
     query.append(" WHERE VersionStatus=1 and ContentSize IS NOT NULL ");
@@ -203,30 +206,61 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   }
 
   @Override
-  public void getDocContent(Id guid, Request request, Response response)
+  public void getDocContent(Id vsId, Request request, Response response)
       throws IOException {
     try (AutoConnection connection = options.getConnection()) {
       ObjectStore objectStore = options.getObjectStore(connection);
       logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
-      Document document = (Document)
-          objectStore.fetchObject(ClassNames.DOCUMENT, guid,
+      ObjectFactory objectFactory = options.getObjectFactory();
+      SearchWrapper search = objectFactory.getSearch(objectStore);
+
+      String query = "SELECT Id FROM Document"
+          + " WHERE VersionSeries = OBJECT(" + vsId + ") and VersionStatus = 1";
+      IndependentObjectSet objectSet = search.fetchObjects(query, null,
+          SearchWrapper.NO_FILTER, SearchWrapper.NOT_CONTINUABLE);
+      Iterator<?> objects = objectSet.iterator();
+      if (objects.hasNext()) {
+        Document document = (Document) objects.next();
+        Id guid = document.get_Id();
+        logger.log(Level.FINE, "Found document ID {0} for VersionSeries ID {1}",
+            new Object[] { guid, vsId });
+        try {
+          document.refresh(
               FileUtil.getDocumentPropertyFilter(
                   options.getIncludedMetadata(),
                   options.getExcludedMetadata()));
+        } catch (EngineRuntimeException e) {
+          // This inner try statement just avoids returning 404 if the
+          // object store is not found (returning 500 instead).
+          if (e.getExceptionCode() == ExceptionCode.E_OBJECT_NOT_FOUND) {
+            logger.log(Level.FINE, "Unable to fetch document for ID {0}", guid);
+            response.respondNotFound();
+            return;
+          } else {
+            throw e;
+          }
+        }
 
-      logger.log(Level.FINEST, "Add document [ID: {0}]", guid);
-      processDocument(guid, newDocId(guid), document, request, response);
+        processDocument(newDocId(vsId), vsId, guid, document,
+            request, response);
+
+        if (objects.hasNext()) {
+          logger.log(Level.INFO,
+              "Duplicate released documents for VersionSeries ID: {0}", vsId);
+        }
+      } else {
+        logger.log(Level.FINE, "VersionSeries not found for ID {0}", vsId);
+        response.respondNotFound();
+      }
     } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
   }
 
-  private void processDocument(Id guid, DocId docId, Document document,
+  private void processDocument(DocId docId, Id vsId, Id guid, Document document,
       Request request, Response response) throws IOException {
-    logger.log(Level.FINE, "Fetch document for DocId {0}", guid);
-    String vsDocId = document.get_VersionSeries().get_Id().toString();
-    logger.log(Level.FINE, "VersionSeriesID for document is: {0}", vsDocId);
+    logger.log(Level.FINE, "Process document for ID: {0}", guid);
 
     if (!options.markAllDocsAsPublic()) {
       ActiveMarkingList activeMarkings = document.get_ActiveMarkings();
@@ -238,7 +272,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
     response.setContentType(document.get_MimeType());
     response.setDisplayUrl(
-        URI.create(options.getDisplayUrl() + percentEscape(vsDocId)));
+        URI.create(options.getDisplayUrl() + percentEscape(vsId.toString())));
     response.setLastModified(document.get_DateLastModified());
 
     setMetadata(document, response);

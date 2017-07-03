@@ -143,9 +143,6 @@ class FileNetProxies implements ObjectFactory {
     /** Adds an object to the store. */
     void addObject(Document object);
 
-    /** Verifies that the given object is in the store. */
-    boolean containsObject(String type, Id id);
-
     /** Retrieves all the objects in the store. */
     Collection<Document> getObjects();
   }
@@ -160,15 +157,6 @@ class FileNetProxies implements ObjectFactory {
       objects.put(object.get_Id(), object);
     }
 
-    /** Verifies that the given object is in the store. */
-    public boolean containsObject(String type, Id id) {
-      if (ClassNames.DOCUMENT.equals(type)) {
-        return objects.containsKey(id);
-      } else {
-        throw new AssertionError("Unexpected type " + type);
-      }
-    }
-
     /** Retrieves all the objects in the store. */
     public Collection<Document> getObjects() {
       return objects.values();
@@ -180,8 +168,7 @@ class FileNetProxies implements ObjectFactory {
       if (ClassNames.DOCUMENT.equals(type)) {
         Document obj = objects.get(id);
         if (obj == null) {
-          throw new EngineRuntimeException(
-              ExceptionCode.DB_OBJECT_DOES_NOT_EXIST);
+          throw new EngineRuntimeException(ExceptionCode.E_OBJECT_NOT_FOUND);
         } else {
           return obj;
         }
@@ -206,9 +193,9 @@ class FileNetProxies implements ObjectFactory {
       + PropertyNames.DATE_LAST_MODIFIED + " timestamp, "
       + PropertyNames.CONTENT_SIZE + " int, "
       + PropertyNames.NAME + " varchar, "
-      + PropertyNames.RELEASED_VERSION + " varchar, "
       + PropertyNames.SECURITY_FOLDER + " varchar, "
       + PropertyNames.SECURITY_POLICY + " varchar, "
+      + PropertyNames.VERSION_SERIES + " varchar, "
       + PropertyNames.VERSION_STATUS + " int)";
 
   static void createTables() throws SQLException {
@@ -247,7 +234,14 @@ class FileNetProxies implements ObjectFactory {
           .replace(
               GuidConstants.Class_SecurityPolicy.toString(), "SecurityPolicy")
           .replaceAll("([-:0-9]{10}T[-:\\.0-9]{18})", "'$1'")
-          .replaceAll("Object\\((\\{[-0-9A-F]{36}\\})\\)", "'$1'");
+          .replaceAll("(?i)OBJECT\\((\\{[-0-9A-F]{36}\\})\\)", "'$1'");
+
+      // The page size is ignored for non-continuable queries.
+      if (!continuable.booleanValue()) {
+        pageSize = Integer.MAX_VALUE;
+      } else if (pageSize == null) {
+        pageSize = 500; // Mimic ServerCacheCofiguration.QueryPageDefaultSize.
+      }
 
       // Execute the queries.
       try (Statement stmt = JdbcFixture.getConnection().createStatement();
@@ -266,7 +260,15 @@ class FileNetProxies implements ObjectFactory {
         List<IndependentObject> newObjects = new ArrayList<>();
         int count = 0;
         while (oldObjects.hasNext() && count++ < pageSize) {
-          newObjects.add((IndependentObject) oldObjects.next());
+          IndependentObject object = (IndependentObject) oldObjects.next();
+          // Check to see if the results should be selective, and
+          // return the single document asked for in the query.
+          // TODO(jlacey): Checking for "SELECT Id FROM" is a hack. Use H2.
+          if (!query.startsWith("SELECT Id FROM")
+              || (object instanceof Document
+                  && query.contains(((Document) object).get_Id().toString()))) {
+            newObjects.add(object);
+          }
         }
         return new IndependentObjectSetMock(newObjects);
       } catch (SQLException e) {
