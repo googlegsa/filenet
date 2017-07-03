@@ -37,11 +37,13 @@ import com.filenet.api.core.Document;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
+import com.filenet.api.property.FilterElement;
 import com.filenet.api.property.Property;
 import com.filenet.api.property.PropertyBoolean;
 import com.filenet.api.property.PropertyBooleanList;
 import com.filenet.api.property.PropertyDateTime;
 import com.filenet.api.property.PropertyDateTimeList;
+import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.property.PropertyFloat64;
 import com.filenet.api.property.PropertyFloat64List;
 import com.filenet.api.property.PropertyId;
@@ -61,6 +63,7 @@ import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -227,7 +230,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
             new Object[] { guid, vsId });
         try {
           document.refresh(
-              FileUtil.getDocumentPropertyFilter(
+              getDocumentPropertyFilter(
                   options.getIncludedMetadata(),
                   options.getExcludedMetadata()));
         } catch (EngineRuntimeException e) {
@@ -256,6 +259,43 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
+  }
+
+  /** Creates a default property filter for document. */
+  @VisibleForTesting
+  static PropertyFilter getDocumentPropertyFilter(
+      Set<String> includedMetaNames, Set<String> excludedMetaNames) {
+    Set<String> filterSet = new HashSet<String>();
+    if (includedMetaNames.isEmpty()) {
+      return null;
+    } else {
+      filterSet.addAll(includedMetaNames);
+      filterSet.removeAll(excludedMetaNames);
+    }
+    filterSet.add(PropertyNames.ID);
+    filterSet.add(PropertyNames.CLASS_DESCRIPTION);
+    filterSet.add(PropertyNames.CONTENT_ELEMENTS);
+    filterSet.add(PropertyNames.CONTENT_SIZE);
+    filterSet.add(PropertyNames.DATE_LAST_MODIFIED);
+    filterSet.add(PropertyNames.MIME_TYPE);
+    filterSet.add(PropertyNames.VERSION_SERIES);
+    filterSet.add(PropertyNames.VERSION_SERIES_ID);
+    filterSet.add(PropertyNames.OWNER);
+    filterSet.add(PropertyNames.ACTIVE_MARKINGS);
+    filterSet.add(PropertyNames.PERMISSIONS);
+    filterSet.add(PropertyNames.PERMISSION_TYPE);
+    filterSet.add(PropertyNames.PERMISSION_SOURCE);
+
+    StringBuilder buf = new StringBuilder();
+    for (String filterName : filterSet) {
+      buf.append(filterName).append(" ");
+    }
+    buf.deleteCharAt(buf.length() - 1);
+
+    PropertyFilter filter = new PropertyFilter();
+    filter.addIncludeProperty(
+        new FilterElement(null, null, null, buf.toString(), null));
+    return filter;
   }
 
   private void processDocument(DocId docId, Id vsId, Id guid, Document document,
@@ -308,24 +348,6 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         }
       }
     }
-  }
-
-  private List<UserPrincipal> getUserPrincipals(Set<String> names,
-      String namespace) {
-    ArrayList<UserPrincipal> list = new ArrayList<>();
-    for (String name : names) {
-      list.add(new UserPrincipal(FileUtil.convertDn(name), namespace));
-    }
-    return list;
-  }
-
-  private List<GroupPrincipal> getGroupPrincipals(Set<String> names,
-      String namespace) {
-    ArrayList<GroupPrincipal> list = new ArrayList<>();
-    for (String name : names) {
-      list.add(new GroupPrincipal(FileUtil.convertDn(name), namespace));
-    }
-    return list;
   }
 
   private static final String SEC_MARKING_POSTFIX = "MARK";
@@ -421,6 +443,24 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       builder.setInheritFrom(docId, parentFragment);
     }
     return builder.build();
+  }
+
+  private List<UserPrincipal> getUserPrincipals(Set<String> names,
+      String namespace) {
+    ArrayList<UserPrincipal> list = new ArrayList<>();
+    for (String name : names) {
+      list.add(new UserPrincipal(FileUtil.convertDn(name), namespace));
+    }
+    return list;
+  }
+
+  private List<GroupPrincipal> getGroupPrincipals(Set<String> names,
+      String namespace) {
+    ArrayList<GroupPrincipal> list = new ArrayList<>();
+    for (String name : names) {
+      list.add(new GroupPrincipal(FileUtil.convertDn(name), namespace));
+    }
+    return list;
   }
 
   private void setMetadata(Document document, Response response) {

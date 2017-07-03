@@ -17,12 +17,6 @@ package com.google.enterprise.adaptor.filenet;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 
-import com.filenet.api.constants.PropertyNames;
-import com.filenet.api.property.FilterElement;
-import com.filenet.api.property.PropertyFilter;
-
-import java.util.HashSet;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,42 +25,6 @@ class FileUtil {
       Logger.getLogger(FileUtil.class.getName());
 
   private FileUtil() {
-  }
-
-  /** Creates a default property filter for document. */
-  public static PropertyFilter getDocumentPropertyFilter(
-      Set<String> includedMetaNames, Set<String> excludedMetaNames) {
-    Set<String> filterSet = new HashSet<String>();
-    if (includedMetaNames.isEmpty()) {
-      return null;
-    } else {
-      filterSet.addAll(includedMetaNames);
-      filterSet.removeAll(excludedMetaNames);
-    }
-    filterSet.add(PropertyNames.ID);
-    filterSet.add(PropertyNames.CLASS_DESCRIPTION);
-    filterSet.add(PropertyNames.CONTENT_ELEMENTS);
-    filterSet.add(PropertyNames.CONTENT_SIZE);
-    filterSet.add(PropertyNames.DATE_LAST_MODIFIED);
-    filterSet.add(PropertyNames.MIME_TYPE);
-    filterSet.add(PropertyNames.VERSION_SERIES);
-    filterSet.add(PropertyNames.VERSION_SERIES_ID);
-    filterSet.add(PropertyNames.OWNER);
-    filterSet.add(PropertyNames.ACTIVE_MARKINGS);
-    filterSet.add(PropertyNames.PERMISSIONS);
-    filterSet.add(PropertyNames.PERMISSION_TYPE);
-    filterSet.add(PropertyNames.PERMISSION_SOURCE);
-
-    StringBuilder buf = new StringBuilder();
-    for (String filterName : filterSet) {
-      buf.append(filterName).append(" ");
-    }
-    buf.deleteCharAt(buf.length() - 1);
-
-    PropertyFilter filter = new PropertyFilter();
-    filter.addIncludeProperty(
-        new FilterElement(null, null, null, buf.toString(), null));
-    return filter;
   }
 
   /**
