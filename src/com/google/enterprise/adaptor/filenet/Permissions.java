@@ -39,131 +39,109 @@ class Permissions {
       AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
   private static final int USE_MARKING = AccessRight.USE_MARKING_AS_INT;
 
-  private final AccessPermissionList perms;
-  private final String owner;
+  private final SetMultimap<PermissionSource, String> allowUsers =
+      HashMultimap.create();
+  private final SetMultimap<PermissionSource, String> allowGroups =
+      HashMultimap.create();
+  private final SetMultimap<PermissionSource, String> denyUsers =
+      HashMultimap.create();
+  private final SetMultimap<PermissionSource, String> denyGroups =
+      HashMultimap.create();
 
+  /** Collect Regular (Non-Marking) Permissions. */
   public Permissions(AccessPermissionList perms, String owner) {
-    this.perms = perms;
-    this.owner = owner;
-  }
-
-  public Permissions(AccessPermissionList perms) {
-    this(perms, null);
-  }
-
-  public Permissions.Acl getAcl() {
-    return new Acl();
-  }
-
-  public Permissions.Acl getMarkingAcl(int constraintMask) {
-    return new Acl(constraintMask);
-  }
-
-  public class Acl {
-    private final SetMultimap<PermissionSource, String> allowUsers =
-        HashMultimap.create();
-    private final SetMultimap<PermissionSource, String> allowGroups =
-        HashMultimap.create();
-    private final SetMultimap<PermissionSource, String> denyUsers =
-        HashMultimap.create();
-    private final SetMultimap<PermissionSource, String> denyGroups =
-        HashMultimap.create();
-
-    /** Builds and ACL from direct, folder, or policy Permissions. */
-    private Acl() {
-      Iterator<?> iter = perms.iterator();
-      while (iter.hasNext()) {
-        AccessPermission perm = (AccessPermission) iter.next();
-        int mask = perm.get_AccessMask();
-        if ((mask & VIEW_ACCESS_RIGHTS) != VIEW_ACCESS_RIGHTS) {
-          continue;
-        }
-        if (perm.get_AccessType() == AccessType.ALLOW) {
-          if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
-            allowUsers.put(perm.get_PermissionSource(), perm.get_GranteeName());
-          } else {
-            allowGroups.put(perm.get_PermissionSource(),
-                perm.get_GranteeName());
-          }
-        } else {
-          if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
-            denyUsers.put(perm.get_PermissionSource(), perm.get_GranteeName());
-          } else {
-            denyGroups.put(perm.get_PermissionSource(), perm.get_GranteeName());
-          }
-        }
+    // TODO(bmj): Implement owners in ACLs.
+    Iterator<?> iter = perms.iterator();
+    while (iter.hasNext()) {
+      AccessPermission perm = (AccessPermission) iter.next();
+      int mask = perm.get_AccessMask();
+      if ((mask & VIEW_ACCESS_RIGHTS) != VIEW_ACCESS_RIGHTS) {
+        continue;
       }
-    }
-
-    @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
-    /** Builds an ACL from Marking Permissions. */
-    private Acl(int constraintMask) {
-      Iterator<?> iter = perms.iterator();
-      while (iter.hasNext()) {
-        AccessPermission perm = (AccessPermission) iter.next();
-        int mask = perm.get_AccessMask();
-        if ((mask & USE_MARKING) != USE_MARKING) {
-          continue;
-        }
-        if (perm.get_AccessType() == AccessType.ALLOW) {
-          if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
-            allowUsers.put(PermissionSource.MARKING, perm.get_GranteeName());
-          } else {
-            allowGroups.put(PermissionSource.MARKING, perm.get_GranteeName());
-          }
+      if (perm.get_AccessType() == AccessType.ALLOW) {
+        if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
+          allowUsers.put(perm.get_PermissionSource(), perm.get_GranteeName());
         } else {
-          if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
-            denyUsers.put(PermissionSource.MARKING, perm.get_GranteeName());
-          } else {
-            denyGroups.put(PermissionSource.MARKING, perm.get_GranteeName());
-          }
+          allowGroups.put(perm.get_PermissionSource(), perm.get_GranteeName());
         }
-      }
-      boolean authorizeByConstraints =
-          (VIEW_ACCESS_RIGHTS & ~constraintMask) == VIEW_ACCESS_RIGHTS;
-      if (authorizeByConstraints) {
-        // TODO(bmj): AUTHENTICATED_USERS should really be feed as a local
-        // group, not a global group.
-        allowGroups.put(PermissionSource.MARKING, AUTHENTICATED_USERS);
       } else {
-        // If we added a denyGroups of AUTHENTICATED_USERS, the ACL would
-        // end up denying everybody, since the ACL chain would not reflect
-        // how Use rights trump the constraint mask. However, AND_BOTH_PERMIT
-        // allows this to work itself out, since anyone not explicitly
-        // granted ALLOW rights, will be denied anyway.
+        if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
+          denyUsers.put(perm.get_PermissionSource(), perm.get_GranteeName());
+        } else {
+          denyGroups.put(perm.get_PermissionSource(), perm.get_GranteeName());
+        }
       }
     }
+  }
 
-    public Set<String> getAllowUsers() {
-      return new HashSet<String>(allowUsers.values());
+  /** Collect Marking Permissions. */
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  public Permissions(AccessPermissionList perms, int constraintMask) {
+    Iterator<?> iter = perms.iterator();
+    while (iter.hasNext()) {
+      AccessPermission perm = (AccessPermission) iter.next();
+      int mask = perm.get_AccessMask();
+      if ((mask & USE_MARKING) != USE_MARKING) {
+        continue;
+      }
+      if (perm.get_AccessType() == AccessType.ALLOW) {
+        if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
+          allowUsers.put(PermissionSource.MARKING, perm.get_GranteeName());
+        } else {
+          allowGroups.put(PermissionSource.MARKING, perm.get_GranteeName());
+        }
+      } else {
+        if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
+          denyUsers.put(PermissionSource.MARKING, perm.get_GranteeName());
+        } else {
+          denyGroups.put(PermissionSource.MARKING, perm.get_GranteeName());
+        }
+      }
     }
+    boolean authorizeByConstraints =
+        (VIEW_ACCESS_RIGHTS & ~constraintMask) == VIEW_ACCESS_RIGHTS;
+    if (authorizeByConstraints) {
+      // TODO(bmj): AUTHENTICATED_USERS should really be feed as a local
+      // group, not a global group.
+      allowGroups.put(PermissionSource.MARKING, AUTHENTICATED_USERS);
+    } else {
+      // If we added a denyGroups of AUTHENTICATED_USERS, the ACL would
+      // end up denying everybody, since the ACL chain would not reflect
+      // how Use rights trump the constraint mask. However, AND_BOTH_PERMIT
+      // allows this to work itself out, since anyone not explicitly
+      // granted ALLOW rights, will be denied anyway.
+    }
+  }
 
-    public Set<String> getAllowUsers(PermissionSource permSrc) {
-      return allowUsers.get(permSrc);
-    }
+  public Set<String> getAllowUsers() {
+    return new HashSet<String>(allowUsers.values());
+  }
 
-    public Set<String> getAllowGroups() {
-      return new HashSet<String>(allowGroups.values());
-    }
+  public Set<String> getAllowUsers(PermissionSource permSrc) {
+    return allowUsers.get(permSrc);
+  }
 
-    public Set<String> getAllowGroups(PermissionSource permSrc) {
-      return allowGroups.get(permSrc);
-    }
+  public Set<String> getAllowGroups() {
+    return new HashSet<String>(allowGroups.values());
+  }
 
-    public Set<String> getDenyUsers() {
-      return new HashSet<String>(denyUsers.values());
-    }
+  public Set<String> getAllowGroups(PermissionSource permSrc) {
+    return allowGroups.get(permSrc);
+  }
 
-    public Set<String> getDenyUsers(PermissionSource permSrc) {
-      return denyUsers.get(permSrc);
-    }
+  public Set<String> getDenyUsers() {
+    return new HashSet<String>(denyUsers.values());
+  }
 
-    public Set<String> getDenyGroups() {
-      return new HashSet<String>(denyGroups.values());
-    }
+  public Set<String> getDenyUsers(PermissionSource permSrc) {
+    return denyUsers.get(permSrc);
+  }
 
-    public Set<String> getDenyGroups(PermissionSource permSrc) {
-      return denyGroups.get(permSrc);
-    }
+  public Set<String> getDenyGroups() {
+    return new HashSet<String>(denyGroups.values());
+  }
+
+  public Set<String> getDenyGroups(PermissionSource permSrc) {
+    return denyGroups.get(permSrc);
   }
 }
