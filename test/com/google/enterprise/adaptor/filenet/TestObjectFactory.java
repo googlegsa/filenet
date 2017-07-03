@@ -54,6 +54,13 @@ class TestObjectFactory {
     return new ConfigOptions(context);
   }
 
+  @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+  public static AccessPermissionList getMarkingPermissions() {
+    return newPermissionList(
+        generatePermissions(1, 1, 1, 1, AccessRight.USE_MARKING_AS_INT, 0,
+            PermissionSource.MARKING));
+  }
+
   public static AccessPermissionList getPermissions(
       PermissionSource... sources) {
     List<AccessPermission> aces = new ArrayList<>();

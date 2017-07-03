@@ -64,7 +64,7 @@ class Permissions {
   public static final String AUTHENTICATED_USERS = "#AUTHENTICATED-USERS";
   private static final String CREATOR_OWNER = "#CREATOR-OWNER";
 
-  private static final int VIEW_ACCESS_RIGHTS =
+  public static final int VIEW_ACCESS_RIGHTS =
       AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT;
   private static final int USE_MARKING = AccessRight.USE_MARKING_AS_INT;
 
@@ -269,21 +269,22 @@ class Permissions {
     return new Acl();
   }
 
+  public Permissions.Acl getMarkingAcl(int constraintMask) {
+    return new Acl(constraintMask);
+  }
+
   public class Acl {
-    private final SetMultimap<PermissionSource, String> allowUsers;
-    private final SetMultimap<PermissionSource, String> allowGroups;
-    private final SetMultimap<PermissionSource, String> denyUsers;
-    private final SetMultimap<PermissionSource, String> denyGroups;
+    private final SetMultimap<PermissionSource, String> allowUsers =
+        HashMultimap.create();
+    private final SetMultimap<PermissionSource, String> allowGroups =
+        HashMultimap.create();
+    private final SetMultimap<PermissionSource, String> denyUsers =
+        HashMultimap.create();
+    private final SetMultimap<PermissionSource, String> denyGroups =
+        HashMultimap.create();
 
+    /** Builds and ACL from direct, folder, or policy Permissions. */
     private Acl() {
-      this.allowUsers = HashMultimap.create();
-      this.allowGroups = HashMultimap.create();
-      this.denyUsers = HashMultimap.create();
-      this.denyGroups = HashMultimap.create();
-      processPermissions();
-    }
-
-    private void processPermissions() {
       Iterator<?> iter = perms.iterator();
       while (iter.hasNext()) {
         AccessPermission perm = (AccessPermission) iter.next();
@@ -305,6 +306,45 @@ class Permissions {
             denyGroups.put(perm.get_PermissionSource(), perm.get_GranteeName());
           }
         }
+      }
+    }
+
+    @SuppressWarnings("deprecation")  // For PermissionSource.MARKING
+    /** Builds an ACL from Marking Permissions. */
+    private Acl(int constraintMask) {
+      Iterator<?> iter = perms.iterator();
+      while (iter.hasNext()) {
+        AccessPermission perm = (AccessPermission) iter.next();
+        int mask = perm.get_AccessMask();
+        if ((mask & USE_MARKING) != USE_MARKING) {
+          continue;
+        }
+        if (perm.get_AccessType() == AccessType.ALLOW) {
+          if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
+            allowUsers.put(PermissionSource.MARKING, perm.get_GranteeName());
+          } else {
+            allowGroups.put(PermissionSource.MARKING, perm.get_GranteeName());
+          }
+        } else {
+          if (perm.get_GranteeType() == SecurityPrincipalType.USER) {
+            denyUsers.put(PermissionSource.MARKING, perm.get_GranteeName());
+          } else {
+            denyGroups.put(PermissionSource.MARKING, perm.get_GranteeName());
+          }
+        }
+      }
+      boolean authorizeByConstraints =
+          (VIEW_ACCESS_RIGHTS & ~constraintMask) == VIEW_ACCESS_RIGHTS;
+      if (authorizeByConstraints) {
+        // TODO(bmj): AUTHENTICATED_USERS should really be feed as a local
+        // group, not a global group.
+        allowGroups.put(PermissionSource.MARKING, AUTHENTICATED_USERS);
+      } else {
+        // If we added a denyGroups of AUTHENTICATED_USERS, the ACL would
+        // end up denying everybody, since the ACL chain would not reflect
+        // how Use rights trump the constraint mask. However, AND_BOTH_PERMIT
+        // allows this to work itself out, since anyone not explicitly
+        // granted ALLOW rights, will be denied anyway.
       }
     }
 

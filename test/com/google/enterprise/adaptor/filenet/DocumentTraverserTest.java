@@ -43,6 +43,8 @@ import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
+import com.filenet.api.constants.AccessLevel;
+import com.filenet.api.constants.AccessRight;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.util.Id;
@@ -470,9 +472,11 @@ public class DocumentTraverserTest {
             PermissionSource.SOURCE_PARENT),
         new ActiveMarkingListMock(
             mockActiveMarking("marking1", markingId1,
-                TestObjectFactory.getPermissions(PermissionSource.MARKING)),
+                TestObjectFactory.getMarkingPermissions(),
+                AccessLevel.FULL_CONTROL_AS_INT),
             mockActiveMarking("marking2", markingId2,
-                TestObjectFactory.getPermissions(PermissionSource.MARKING))));
+                TestObjectFactory.getMarkingPermissions(),
+                AccessRight.READ_AS_INT)));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
     Request request = new MockRequest(docId);
