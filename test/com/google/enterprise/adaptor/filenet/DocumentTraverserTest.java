@@ -22,6 +22,9 @@ import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockActiveMarkin
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocumentNotFound;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -33,6 +36,7 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher.Record;
@@ -48,6 +52,7 @@ import com.filenet.api.constants.AccessLevel;
 import com.filenet.api.constants.AccessRight;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
+import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
 import org.junit.After;
@@ -593,5 +598,55 @@ public class DocumentTraverserTest {
     Checkpoint checkpoint = new Checkpoint(actualCheckpoint);
     assertEquals(expectedDate, checkpoint.timestamp);
     assertEquals(expectedId, checkpoint.guid);
+  }
+
+  /** Tests that including nothing explicitly fetches everything. */
+  @Test
+  public void testGetDocumentPropertyFilter_emptyEmpty() {
+    assertNull(
+        DocumentTraverser.getDocumentPropertyFilter(
+            ImmutableSet.<String>of(),
+            ImmutableSet.<String>of()));
+  }
+
+  /** Tests that excluding properties still fetches everything. */
+  @Test
+  public void testGetDocumentPropertyFilter_emptyNonempty() {
+    assertNull(
+        DocumentTraverser.getDocumentPropertyFilter(
+            ImmutableSet.<String>of(),
+            ImmutableSet.of(PropertyNames.DATE_CREATED, PropertyNames.ID)));
+  }
+
+  /** Tests that included properties are added to the filter. */
+  @Test
+  public void testGetDocumentPropertyFilter_nonemptyEmpty() {
+    PropertyFilter filter =
+        DocumentTraverser.getDocumentPropertyFilter(
+            // This should be something that we don't fetch by default.
+            ImmutableSet.of(PropertyNames.DATE_CREATED),
+            ImmutableSet.<String>of());
+    assertNotNull(filter);
+    assertEquals(filter.toString(), 1, filter.getIncludeProperties().length);
+    List<String> names =
+        asList(filter.getIncludeProperties()[0].getValue().split(" "));
+    assertThat(names, hasItem(PropertyNames.DATE_CREATED));
+    assertThat(names, hasItem(PropertyNames.ID));
+  }
+
+  /** Tests that we can exclude included properties, but not builtin ones. */
+  @Test
+  public void testGetDocumentPropertyFilter_nonemptyNonempty() {
+    PropertyFilter filter =
+        DocumentTraverser.getDocumentPropertyFilter(
+            // This should be something that we don't fetch by default.
+            ImmutableSet.of(PropertyNames.DATE_CREATED),
+            ImmutableSet.of(PropertyNames.DATE_CREATED, PropertyNames.ID));
+    assertNotNull(filter);
+    assertEquals(filter.toString(), 1, filter.getIncludeProperties().length);
+    List<String> names =
+        asList(filter.getIncludeProperties()[0].getValue().split(" "));
+    assertThat(names, not(hasItem(PropertyNames.DATE_CREATED)));
+    assertThat(names, hasItem(PropertyNames.ID));
   }
 }
