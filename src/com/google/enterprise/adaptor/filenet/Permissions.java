@@ -336,11 +336,13 @@ class Permissions {
       boolean authorizeByConstraints =
           (VIEW_ACCESS_RIGHTS & ~constraintMask) == VIEW_ACCESS_RIGHTS;
       if (authorizeByConstraints) {
+        // TODO(bmj): AUTHENTICATED_USERS should really be feed as a local
+        // group, not a global group.
         allowGroups.put(PermissionSource.MARKING, AUTHENTICATED_USERS);
       } else {
         // If we added a denyGroups of AUTHENTICATED_USERS, the ACL would
         // end up denying everybody, since the ACL chain would not reflect
-        // how use rights trump the constraint mask. However, AND_BOTH_PERMIT
+        // how Use rights trump the constraint mask. However, AND_BOTH_PERMIT
         // allows this to work itself out, since anyone not explicitly
         // granted ALLOW rights, will be denied anyway.
       }
