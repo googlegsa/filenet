@@ -16,6 +16,7 @@ package com.google.enterprise.adaptor.filenet;
 
 import static com.google.common.collect.Sets.union;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
+import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.percentEscape;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.enterprise.adaptor.Acl;
@@ -88,12 +89,6 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     this.options = options;
     // Leave room for the continuation URLs.
     this.maxRecords = options.getMaxFeedUrls() - 2;
-  }
-
-  /** Percent escapes the curly braces in an Id string. */
-  @VisibleForTesting
-  static String percentEscape(String id) {
-    return id.replace("{", "%7B").replace("}", "%7D");
   }
 
   @Override
@@ -310,8 +305,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     }
 
     response.setContentType(document.get_MimeType());
-    response.setDisplayUrl(
-        URI.create(options.getDisplayUrl() + percentEscape(vsId.toString())));
+    response.setDisplayUrl(options.getDisplayUrl(guid, vsId));
     response.setLastModified(document.get_DateLastModified());
 
     setMetadata(document, response);
@@ -372,8 +366,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
           Acl.InheritanceType.AND_BOTH_PERMIT,
           markingPerms.getAllowUsers(), markingPerms.getDenyUsers(),
           markingPerms.getAllowGroups(), markingPerms.getDenyGroups());
-      fragment = SEC_MARKING_POSTFIX
-          + percentEscape(marking.get_Id().toString());
+      fragment = SEC_MARKING_POSTFIX + percentEscape(marking.get_Id());
       logger.log(Level.FINEST, "Create ACL for active marking {0} {1}#{2}: {3}",
           new Object[] {activeMarking.get_PropertyDisplayName(), docId,
               fragment, markingAcl});
