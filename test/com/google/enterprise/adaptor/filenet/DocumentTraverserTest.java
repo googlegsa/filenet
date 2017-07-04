@@ -22,8 +22,7 @@ import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockActiveMarkin
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocumentNotFound;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Arrays.asList;
-import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.assertEquals;
@@ -32,6 +31,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +52,7 @@ import com.filenet.api.constants.AccessLevel;
 import com.filenet.api.constants.AccessRight;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
+import com.filenet.api.property.FilterElement;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
@@ -603,50 +604,90 @@ public class DocumentTraverserTest {
   /** Tests that including nothing explicitly fetches everything. */
   @Test
   public void testGetDocumentPropertyFilter_emptyEmpty() {
-    assertNull(
-        DocumentTraverser.getDocumentPropertyFilter(
+    PropertyFilter filter =
+        DocumentTraverser.getDocContentPropertyFilter(
             ImmutableSet.<String>of(),
-            ImmutableSet.<String>of()));
+            ImmutableSet.<String>of());
+    assertThat(filter.toString(), 0,
+        not(equalTo(filter.getIncludeTypes().length)));
+    assertThat(filter.toString(), 0,
+        not(equalTo(filter.getIncludeProperties().length)));
+    assertEquals(filter.toString(), 0, filter.getExcludeProperties().length);
   }
 
   /** Tests that excluding properties still fetches everything. */
   @Test
   public void testGetDocumentPropertyFilter_emptyNonempty() {
-    assertNull(
-        DocumentTraverser.getDocumentPropertyFilter(
+    PropertyFilter filter =
+        DocumentTraverser.getDocContentPropertyFilter(
             ImmutableSet.<String>of(),
-            ImmutableSet.of(PropertyNames.DATE_CREATED, PropertyNames.ID)));
+            ImmutableSet.of(PropertyNames.DATE_CREATED, PropertyNames.ID));
+    assertThat(filter.toString(), 0,
+        not(equalTo(filter.getIncludeTypes().length)));
+    assertThat(filter.toString(), 0,
+        not(equalTo(filter.getIncludeProperties().length)));
+    assertEquals(filter.toString(), 1, filter.getExcludeProperties().length);
+    assertEquals(PropertyNames.DATE_CREATED, filter.getExcludeProperties()[0]);
   }
 
   /** Tests that included properties are added to the filter. */
   @Test
   public void testGetDocumentPropertyFilter_nonemptyEmpty() {
     PropertyFilter filter =
-        DocumentTraverser.getDocumentPropertyFilter(
+        DocumentTraverser.getDocContentPropertyFilter(
             // This should be something that we don't fetch by default.
             ImmutableSet.of(PropertyNames.DATE_CREATED),
             ImmutableSet.<String>of());
-    assertNotNull(filter);
-    assertEquals(filter.toString(), 1, filter.getIncludeProperties().length);
-    List<String> names =
-        asList(filter.getIncludeProperties()[0].getValue().split(" "));
-    assertThat(names, hasItem(PropertyNames.DATE_CREATED));
-    assertThat(names, hasItem(PropertyNames.ID));
+    assertEquals(filter.toString(), 0, filter.getIncludeTypes().length);
+    assertThat(filter.toString(), 0,
+        not(equalTo(filter.getIncludeProperties().length)));
+    boolean found = false;
+    for (FilterElement element : filter.getIncludeProperties()) {
+      if (PropertyNames.DATE_CREATED.equals(element.getValue())) {
+        found = true;
+        break;
+      }
+    }
+    assertTrue(filter.toString(), found);
+    assertEquals(filter.toString(), 0, filter.getExcludeProperties().length);
   }
 
   /** Tests that we can exclude included properties, but not builtin ones. */
   @Test
   public void testGetDocumentPropertyFilter_nonemptyNonempty() {
     PropertyFilter filter =
-        DocumentTraverser.getDocumentPropertyFilter(
+        DocumentTraverser.getDocContentPropertyFilter(
             // This should be something that we don't fetch by default.
             ImmutableSet.of(PropertyNames.DATE_CREATED),
             ImmutableSet.of(PropertyNames.DATE_CREATED, PropertyNames.ID));
-    assertNotNull(filter);
-    assertEquals(filter.toString(), 1, filter.getIncludeProperties().length);
-    List<String> names =
-        asList(filter.getIncludeProperties()[0].getValue().split(" "));
-    assertThat(names, not(hasItem(PropertyNames.DATE_CREATED)));
-    assertThat(names, hasItem(PropertyNames.ID));
+    assertEquals(filter.toString(), 0, filter.getIncludeTypes().length);
+    assertThat(filter.toString(), 0,
+        not(equalTo(filter.getIncludeProperties().length)));
+    for (FilterElement element : filter.getIncludeProperties()) {
+      if (PropertyNames.DATE_CREATED.equals(element.getValue())) {
+        fail("Found DateCreated in " + filter);
+      }
+    }
+    assertEquals(filter.toString(), 0, filter.getExcludeProperties().length);
+  }
+
+  /** Tests that included required properties are not added to the filter. */
+  @Test
+  public void testGetDocumentPropertyFilter_requiredEmpty() {
+    PropertyFilter filter =
+        DocumentTraverser.getDocContentPropertyFilter(
+            // This should be something that we fetch by default.
+            ImmutableSet.of(PropertyNames.ID),
+            ImmutableSet.<String>of());
+    assertEquals(filter.toString(), 0, filter.getIncludeTypes().length);
+    assertThat(filter.toString(), 0,
+        not(equalTo(filter.getIncludeProperties().length)));
+    for (FilterElement element : filter.getIncludeProperties()) {
+      assertThat(filter.toString(), "", not(equalTo(element.getValue())));
+      if (PropertyNames.ID.equals(element.getValue())) {
+        fail("Found Id in " + filter);
+      }
+    }
+    assertEquals(filter.toString(), 0, filter.getExcludeProperties().length);
   }
 }

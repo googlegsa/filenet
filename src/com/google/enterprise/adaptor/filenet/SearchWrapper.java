@@ -32,9 +32,6 @@ class SearchWrapper {
   private static final Logger logger =
       Logger.getLogger(SearchWrapper.class.getName());
 
-  /** Dereference object properties in the results. */
-  public static final PropertyFilter dereferenceObjects = new PropertyFilter();
-
   /** Do not filter the results or deference object properties. */
   public static final PropertyFilter NO_FILTER = null;
 
@@ -43,10 +40,6 @@ class SearchWrapper {
 
   /** Do not page through small or unsorted results. */
   public static final Boolean NOT_CONTINUABLE = Boolean.FALSE;
-
-  static {
-    dereferenceObjects.setMaxRecursion(1);
-  }
 
   private final SearchScope search;
 

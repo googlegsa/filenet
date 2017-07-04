@@ -18,6 +18,9 @@ import static com.google.common.collect.Sets.union;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
@@ -30,6 +33,7 @@ import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 
 import com.filenet.api.collection.ActiveMarkingList;
 import com.filenet.api.collection.IndependentObjectSet;
+import com.filenet.api.constants.FilteredPropertyType;
 import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
@@ -37,7 +41,6 @@ import com.filenet.api.core.Document;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
-import com.filenet.api.property.FilterElement;
 import com.filenet.api.property.Property;
 import com.filenet.api.property.PropertyBoolean;
 import com.filenet.api.property.PropertyBooleanList;
@@ -110,8 +113,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       logger.log(Level.FINE, "Query for added or updated documents: {0}",
           query);
       IndependentObjectSet objectSet = search.fetchObjects(query,
-          maxRecords, SearchWrapper.dereferenceObjects,
-          SearchWrapper.CONTINUABLE);
+          maxRecords, getDocIdsPropertyFilter(), SearchWrapper.CONTINUABLE);
       logger.fine(objectSet.isEmpty()
           ? "Found no documents to add or update"
           : "Found documents to add or update");
@@ -208,6 +210,20 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     return MessageFormat.format(whereClause, new Object[] { c, uuid });
   }
 
+  /**
+   * Creates a property filter for getDocIds. Seemingly contrary to
+   * the FileNet API doc, object properties in the SQL select list
+   * must be included here in order for the filter to be used when
+   * fetching those object's own properties.
+   */
+  private static PropertyFilter getDocIdsPropertyFilter() {
+    PropertyFilter filter = new PropertyFilter();
+    filter.addIncludeProperty(1, null, null, PropertyNames.ID, null);
+    filter.addIncludeProperty(1, null, null, PropertyNames.VERSION_SERIES,
+        null);
+    return filter;
+  }
+
   @Override
   public void getDocContent(Id vsId, Request request, Response response)
       throws IOException {
@@ -230,7 +246,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
             new Object[] { guid, vsId });
         try {
           document.refresh(
-              getDocumentPropertyFilter(
+              getDocContentPropertyFilter(
                   options.getIncludedMetadata(),
                   options.getExcludedMetadata()));
         } catch (EngineRuntimeException e) {
@@ -261,40 +277,85 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
     }
   }
 
-  /** Creates a default property filter for document. */
+  /**
+   * Creates a property filter for getDocContent. All properties used
+   * by the connector are included. If no configured properties are
+   * defined, include all supported types.
+   */
   @VisibleForTesting
-  static PropertyFilter getDocumentPropertyFilter(
+  static PropertyFilter getDocContentPropertyFilter(
       Set<String> includedMetaNames, Set<String> excludedMetaNames) {
-    Set<String> filterSet = new HashSet<String>();
-    if (includedMetaNames.isEmpty()) {
-      return null;
-    } else {
-      filterSet.addAll(includedMetaNames);
-      filterSet.removeAll(excludedMetaNames);
-    }
-    filterSet.add(PropertyNames.ID);
-    filterSet.add(PropertyNames.CLASS_DESCRIPTION);
-    filterSet.add(PropertyNames.CONTENT_ELEMENTS);
-    filterSet.add(PropertyNames.CONTENT_SIZE);
-    filterSet.add(PropertyNames.DATE_LAST_MODIFIED);
-    filterSet.add(PropertyNames.MIME_TYPE);
-    filterSet.add(PropertyNames.VERSION_SERIES);
-    filterSet.add(PropertyNames.VERSION_SERIES_ID);
-    filterSet.add(PropertyNames.OWNER);
-    filterSet.add(PropertyNames.ACTIVE_MARKINGS);
-    filterSet.add(PropertyNames.PERMISSIONS);
-    filterSet.add(PropertyNames.PERMISSION_TYPE);
-    filterSet.add(PropertyNames.PERMISSION_SOURCE);
-
-    StringBuilder buf = new StringBuilder();
-    for (String filterName : filterSet) {
-      buf.append(filterName).append(" ");
-    }
-    buf.deleteCharAt(buf.length() - 1);
-
+    Joiner joiner = Joiner.on(' ');
     PropertyFilter filter = new PropertyFilter();
-    filter.addIncludeProperty(
-        new FilterElement(null, null, null, buf.toString(), null));
+
+    // Properties required by the connector.
+    Set<String> levelZero = ImmutableSet.of(
+        PropertyNames.ACTIVE_MARKINGS,
+        PropertyNames.CONTENT_ELEMENTS,
+        PropertyNames.CONTENT_SIZE,
+        PropertyNames.DATE_LAST_MODIFIED,
+        PropertyNames.MIME_TYPE,
+        PropertyNames.OWNER,
+        PropertyNames.PERMISSION_SOURCE,
+        PropertyNames.PROPERTY_DISPLAY_NAME);
+    Set<String> levelOne = ImmutableSet.of(
+        PropertyNames.CONSTRAINT_MASK,
+        PropertyNames.ID,
+        PropertyNames.MARKING);
+    Set<String> levelTwo = ImmutableSet.of(
+        PropertyNames.ACCESS_MASK,
+        PropertyNames.ACCESS_TYPE,
+        PropertyNames.GRANTEE_NAME,
+        PropertyNames.GRANTEE_TYPE,
+        PropertyNames.PERMISSIONS);
+    filter.addIncludeProperty(1, null, null, joiner.join(levelZero), null);
+    filter.addIncludeProperty(2, null, null, joiner.join(levelOne), null);
+    filter.addIncludeProperty(3, null, null, joiner.join(levelTwo), null);
+
+    // Configured metadata properties.
+    if (includedMetaNames.isEmpty()) {
+      // Include all supported types.
+      List<FilteredPropertyType> types = ImmutableList.of(
+          FilteredPropertyType.SINGLETON_BOOLEAN,
+          FilteredPropertyType.LIST_OF_BOOLEAN,
+          FilteredPropertyType.SINGLETON_DATE,
+          FilteredPropertyType.LIST_OF_DATE,
+          FilteredPropertyType.SINGLETON_DOUBLE,
+          FilteredPropertyType.LIST_OF_DOUBLE,
+          FilteredPropertyType.SINGLETON_GUID,
+          FilteredPropertyType.LIST_OF_GUID,
+          FilteredPropertyType.SINGLETON_LONG,
+          FilteredPropertyType.LIST_OF_LONG,
+          FilteredPropertyType.SINGLETON_STRING,
+          FilteredPropertyType.LIST_OF_STRING);
+      for (FilteredPropertyType type : types) {
+        filter.addIncludeType(1, null, null, type, null);
+      }
+
+      // Exclude all configured names, except the required ones.
+      Set<String> excludes = new HashSet<String>(excludedMetaNames);
+      if (!excludes.isEmpty()) {
+        excludes.removeAll(levelZero);
+        excludes.removeAll(levelOne);
+        excludes.removeAll(levelTwo);
+        if (!excludes.isEmpty()) {
+          filter.addExcludeProperty(joiner.join(excludes));
+        }
+      }
+    } else {
+      // Include all configured names, except the excluded ones.
+      // Avoid duplicates of the already included required names for
+      // clarity, though doing so is optional.
+      Set<String> includes = new HashSet<String>(includedMetaNames);
+      includes.removeAll(excludedMetaNames);
+      includes.removeAll(levelZero);
+      includes.removeAll(levelOne);
+      includes.removeAll(levelTwo);
+      if (!includes.isEmpty()) {
+        filter.addIncludeProperty(1, null, null, joiner.join(includes), null);
+      }
+    }
+
     return filter;
   }
 
