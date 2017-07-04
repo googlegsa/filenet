@@ -406,11 +406,11 @@ public class FileNetAdaptorTest {
   @Test
   public void testInit_displayUrl_absolute() throws Exception {
     config.overrideKey("filenet.displayUrlPattern",
-        "https://localhost:8080/getContent?os=ObjStore&vs={1}&guid={0}");
+        "https://localhost:8080/whatever?os=NotObjectStore&vs={1}&guid={0}");
     adaptor.init(context);
     Id guid = new Id("{AAAAAAAA-0000-0000-0000-000000000001}");
     Id vsId = new Id("{AAAAAAAA-0000-0000-0000-000000000002}");
-    String expected = "https://localhost:8080/getContent?os=ObjStore&vs="
+    String expected = "https://localhost:8080/whatever?os=NotObjectStore&vs="
         + percentEscape(vsId) + "&guid=" + percentEscape(guid);
     assertEquals(expected,
         getConfigOptions().getDisplayUrl(guid, vsId).toString());

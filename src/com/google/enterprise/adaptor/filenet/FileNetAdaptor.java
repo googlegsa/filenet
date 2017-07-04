@@ -72,8 +72,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
     config.addKey("filenet.objectStore", null);
     config.addKey("filenet.objectFactory",
         FileNetObjectFactory.class.getName());
-    // DisplayUrl MessageFormat pattern substitutions
-    // {0}: Object GUID
+    // Display URL MessageFormat pattern substitutions
+    // {0}: Document ID
     // {1}: Version Series ID
     // {2}: ObjectStore name
     config.addKey("filenet.displayUrlPattern",

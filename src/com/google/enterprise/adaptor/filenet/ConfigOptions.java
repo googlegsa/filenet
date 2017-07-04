@@ -195,15 +195,15 @@ class ConfigOptions {
     return objectFactory.getObjectStore(connection, objectStoreName);
   }
 
-  public URI getDisplayUrl(Id objectId, Id versionSeriesId) {
-    return URI.create(getDisplayUrl(displayUrlPattern, objectId,
-        versionSeriesId, objectStoreName));
+  public URI getDisplayUrl(Id guid, Id vsId) {
+    return URI.create(getDisplayUrl(displayUrlPattern, guid,
+        vsId, objectStoreName));
   }
 
   private static String getDisplayUrl(String displayUrlPattern, Id guid,
-      Id versionSeriesId, String objectStoreName) {
+      Id vsId, String objectStoreName) {
     return MessageFormat.format(displayUrlPattern,
-        new Object[] { percentEscape(guid), percentEscape(versionSeriesId),
+        new Object[] { percentEscape(guid), percentEscape(vsId),
             objectStoreName });
   }
 
