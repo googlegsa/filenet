@@ -114,7 +114,7 @@ class ConfigOptions {
       logger.log(Level.CONFIG, "displayUrlPattern: {0}", pattern);
     } catch (IllegalArgumentException | URISyntaxException e) {
       throw new InvalidConfigurationException(
-          "Invalid displayUrlPattern: " + pattern, e);
+          "Invalid displayUrlPattern: " + e.getMessage());
     }
 
     markAllDocsAsPublic =
