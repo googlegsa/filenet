@@ -15,9 +15,9 @@
 package com.google.enterprise.adaptor.filenet;
 
 import static com.google.enterprise.adaptor.Acl.InheritanceType;
-import static com.google.enterprise.adaptor.filenet.DocumentTraverser.percentEscape;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint.getQueryTimeString;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
+import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.percentEscape;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockActiveMarking;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocumentNotFound;
@@ -577,7 +577,7 @@ public class DocumentTraverserTest {
   }
 
   private String markingFragment(String id) {
-    return "MARK" + percentEscape(id);
+    return "MARK" + percentEscape(new Id(id));
   }
 
   /**

@@ -14,7 +14,7 @@
 
 package com.google.enterprise.adaptor.filenet;
 
-import static com.google.enterprise.adaptor.filenet.DocumentTraverser.percentEscape;
+import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.percentEscape;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +26,9 @@ import com.google.enterprise.adaptor.SensitiveValueDecoder;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.util.Id;
 
+import java.net.URI;
 import java.net.URISyntaxException;
+import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.Set;
 import java.util.logging.Level;
@@ -47,7 +49,7 @@ class ConfigOptions {
   private final String objectStoreName;
 
   private final ObjectFactory objectFactory;
-  private final String displayUrl;
+  private final String displayUrlPattern;
   private final boolean markAllDocsAsPublic;
   private final String additionalWhereClause;
   private final Set<String> includedMetadata;
@@ -96,26 +98,23 @@ class ConfigOptions {
     logger.log(Level.CONFIG, "filenet.objectFactory: {0}", objectFactoryName);
 
     // TODO(jlacey): Replace this with a MessageFormat pattern.
-    String workplaceUrl = config.getValue("filenet.displayUrl");
-    if (workplaceUrl.endsWith("/getContent/")) {
-      workplaceUrl = workplaceUrl.substring(0, workplaceUrl.length() - 1);
-    }
-    if (workplaceUrl.contains("/getContent")
-        && workplaceUrl.endsWith("/getContent")) {
-      workplaceUrl += "?objectStoreName=" + objectStoreName
-          + "&objectType=document&versionStatus=1&vsId=";
-    } else {
-      workplaceUrl += "/getContent?objectStoreName=" + objectStoreName
-          + "&objectType=document&versionStatus=1&vsId=";
-    }
-    displayUrl = workplaceUrl;
-    logger.log(Level.CONFIG, "displayUrl: {0}", displayUrl);
+    String pattern = config.getValue("filenet.displayUrlPattern");
     try {
-      new ValidatedUri(displayUrl + percentEscape(Id.ZERO_ID.toString()))
+      URI uri = new URI(
+          getDisplayUrl(pattern, Id.ZERO_ID, Id.ZERO_ID, objectStoreName));
+      if (!uri.isAbsolute()) {
+        URI ceUri = new URI(contentEngineUrl);
+        pattern = ceUri.getScheme() + "://" + ceUri.getRawAuthority()
+            + (pattern.startsWith("/") ? "" : "/") + pattern;
+      }
+      new ValidatedUri(
+          getDisplayUrl(pattern, Id.ZERO_ID, Id.ZERO_ID, objectStoreName))
           .logUnreachableHost();
-    } catch (URISyntaxException e) {
+      this.displayUrlPattern = pattern;
+      logger.log(Level.CONFIG, "displayUrlPattern: {0}", pattern);
+    } catch (IllegalArgumentException | URISyntaxException e) {
       throw new InvalidConfigurationException(
-          "Invalid displayUrl: " + e.getMessage());
+          "Invalid displayUrlPattern: " + e.getMessage());
     }
 
     markAllDocsAsPublic =
@@ -196,8 +195,16 @@ class ConfigOptions {
     return objectFactory.getObjectStore(connection, objectStoreName);
   }
 
-  public String getDisplayUrl() {
-    return displayUrl;
+  public URI getDisplayUrl(Id guid, Id vsId) {
+    return URI.create(getDisplayUrl(displayUrlPattern, guid,
+        vsId, objectStoreName));
+  }
+
+  private static String getDisplayUrl(String displayUrlPattern, Id guid,
+      Id vsId, String objectStoreName) {
+    return MessageFormat.format(displayUrlPattern,
+        new Object[] { percentEscape(guid), percentEscape(vsId),
+            objectStoreName });
   }
 
   public boolean markAllDocsAsPublic() {

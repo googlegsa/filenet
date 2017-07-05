@@ -17,6 +17,7 @@ package com.google.enterprise.adaptor.filenet;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
+import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.percentEscape;
 import static org.hamcrest.CoreMatchers.isA;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -76,7 +77,6 @@ public class FileNetAdaptorTest {
     config.overrideKey("filenet.objectStore", "ObjectStore");
     config.overrideKey("filenet.objectFactory",
         FileNetProxies.class.getName());
-    config.overrideKey("filenet.displayUrl", "http://localhost/");
   }
 
   @After
@@ -379,49 +379,57 @@ public class FileNetAdaptorTest {
   }
 
   @Test
-  public void testInit_displayUrl_bare() throws Exception {
-    config.overrideKey("filenet.displayUrl", "http://localhost");
-    config.overrideKey("filenet.objectStore", "ObjectStore");
+  public void testInit_displayUrl_default() throws Exception {
     adaptor.init(context);
-    String expected = "http://localhost/getContent?objectStoreName=ObjectStore"
-        + "&objectType=document&versionStatus=1&vsId=";
-    assertEquals(expected, getConfigOptions().getDisplayUrl());
+    Id guid = new Id("{AAAAAAAA-0000-0000-0000-000000000001}");
+    Id vsId = new Id("{AAAAAAAA-0000-0000-0000-000000000002}");
+    String expected = "http://localhost/WorkplaceXT/getContent"
+        + "?objectStoreName=ObjectStore"
+        + "&objectType=document&versionStatus=1&vsId=" + percentEscape(vsId);
+    assertEquals(expected,
+        getConfigOptions().getDisplayUrl(guid, vsId).toString());
   }
 
   @Test
-  public void testInit_displayUrl_getContent() throws Exception {
-    config.overrideKey("filenet.displayUrl", "http://localhost/getContent");
-    config.overrideKey("filenet.objectStore", "ObjectStore");
+  public void testInit_displayUrl_relative() throws Exception {
+    config.overrideKey("filenet.contentEngineUrl", "https://localhost:8080/");
+    config.overrideKey("filenet.displayUrlPattern", "getContent?os={2}&vs={1}");
     adaptor.init(context);
-    String expected = "http://localhost/getContent?objectStoreName=ObjectStore"
-        + "&objectType=document&versionStatus=1&vsId=";
-    assertEquals(expected, getConfigOptions().getDisplayUrl());
+    Id guid = new Id("{AAAAAAAA-0000-0000-0000-000000000001}");
+    Id vsId = new Id("{AAAAAAAA-0000-0000-0000-000000000002}");
+    String expected = "https://localhost:8080/getContent?os=ObjectStore&vs="
+        + percentEscape(vsId);
+    assertEquals(expected,
+        getConfigOptions().getDisplayUrl(guid, vsId).toString());
   }
 
   @Test
-  public void testInit_displayUrl_getContentSlash() throws Exception {
-    config.overrideKey("filenet.displayUrl", "http://localhost/getContent/");
-    config.overrideKey("filenet.objectStore", "ObjectStore");
+  public void testInit_displayUrl_absolute() throws Exception {
+    config.overrideKey("filenet.displayUrlPattern",
+        "https://localhost:8080/whatever?os=NotObjectStore&vs={1}&guid={0}");
     adaptor.init(context);
-    String expected = "http://localhost/getContent?objectStoreName=ObjectStore"
-        + "&objectType=document&versionStatus=1&vsId=";
-    assertEquals(expected, getConfigOptions().getDisplayUrl());
+    Id guid = new Id("{AAAAAAAA-0000-0000-0000-000000000001}");
+    Id vsId = new Id("{AAAAAAAA-0000-0000-0000-000000000002}");
+    String expected = "https://localhost:8080/whatever?os=NotObjectStore&vs="
+        + percentEscape(vsId) + "&guid=" + percentEscape(guid);
+    assertEquals(expected,
+        getConfigOptions().getDisplayUrl(guid, vsId).toString());
   }
 
   @Test
-  public void testInit_displayUrl_invalid() throws Exception {
-    String url = "foo/bar";
-    config.overrideKey("filenet.displayUrl", url);
+  public void testInit_displayUrl_invalidPattern() throws Exception {
+    config.overrideKey("filenet.displayUrlPattern", "{foobar}");
     thrown.expect(InvalidConfigurationException.class);
-    thrown.expectMessage("Invalid displayUrl");
+    thrown.expectMessage("Invalid displayUrlPattern");
     adaptor.init(context);
   }
 
   @Test
-  public void testInit_displayUrl_missing() throws Exception {
-    config.overrideKey("filenet.displayUrl", null);
+  public void testInit_displayUrl_invalidUri() throws Exception {
+    config.overrideKey("filenet.displayUrlPattern",
+        "http://some host/{0};{1};{2};{3}");
     thrown.expect(InvalidConfigurationException.class);
-    thrown.expectMessage("You must set configuration key");
+    thrown.expectMessage("Invalid displayUrlPattern");
     adaptor.init(context);
   }
 

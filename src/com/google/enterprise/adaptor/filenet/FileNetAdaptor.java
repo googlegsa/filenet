@@ -59,6 +59,11 @@ public class FileNetAdaptor extends AbstractAdaptor {
     AbstractAdaptor.main(new FileNetAdaptor(), args);
   }
 
+  /** Percent escapes the curly braces in an Id string. */
+  static String percentEscape(Id id) {
+    return id.toString().replace("{", "%7B").replace("}", "%7D");
+  }
+
   @Override
   public void initConfig(Config config) {
     config.addKey("filenet.contentEngineUrl", null);
@@ -67,7 +72,13 @@ public class FileNetAdaptor extends AbstractAdaptor {
     config.addKey("filenet.objectStore", null);
     config.addKey("filenet.objectFactory",
         FileNetObjectFactory.class.getName());
-    config.addKey("filenet.displayUrl", null);
+    // Display URL MessageFormat pattern substitutions
+    // {0}: Document ID
+    // {1}: Version Series ID
+    // {2}: ObjectStore name
+    config.addKey("filenet.displayUrlPattern",
+        "/WorkplaceXT/getContent?objectStoreName={2}"
+        + "&objectType=document&versionStatus=1&vsId={1}");
     config.addKey("filenet.additionalWhereClause", "");
     config.addKey("filenet.deleteAdditionalWhereClause", "");
     config.addKey("filenet.excludedMetadata", "");
