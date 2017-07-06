@@ -12,7 +12,7 @@ filenet.objectStore =
 
 # Optional properties.
 # filenet.additionalWhereClause =
-# filenet.displayUrl = /WorkplaceXT/getContent?objectStoreName={2}\
+# filenet.displayUrlPattern = /WorkplaceXT/getContent?objectStoreName={2}\
 #     &objectType=document&versionStatus=1&vsId={1}
 # filenet.excludedMetadata = Accessor, ActiveMarkings, CmIndexingFailureCode, \
 #     CmRetentionDate, ComponentBindingLabel, ContentElements, \
