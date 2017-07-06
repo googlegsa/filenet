@@ -21,6 +21,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.US;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.AbstractAdaptor;
 import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
@@ -30,6 +32,7 @@ import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
 
+import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.util.Id;
 
@@ -64,14 +67,44 @@ public class FileNetAdaptor extends AbstractAdaptor {
     return id.toString().replace("{", "%7B").replace("}", "%7D");
   }
 
+  @VisibleForTesting
+  static final ImmutableSet<String> excludedMetadata = ImmutableSet.of(
+      // v3 excluded properties
+      "EntryTemplateId",
+      "EntryTemplateLaunchedWorkflowNumber",
+      "EntryTemplateObjectStoreName",
+      PropertyNames.IS_IN_EXCEPTION_STATE,
+      PropertyNames.IS_VERSIONING_ENABLED,
+      PropertyNames.LOCK_OWNER,
+      PropertyNames.RESERVATION_TYPE,
+      // v4 excluded properties (FileNet P8 5.x)
+      PropertyNames.CM_INDEXING_FAILURE_CODE,
+      PropertyNames.CM_RETENTION_DATE,
+      "ComponentBindingLabel",
+      PropertyNames.CONTENT_RETENTION_DATE,
+      "IgnoreRedirect",
+      // Access-related (excluded to avoid indexing churn)
+      "Accessor",
+      PropertyNames.DATE_CONTENT_LAST_ACCESSED,
+      // Objects that appear in getDocContentPropertyFilter
+      PropertyNames.ACTIVE_MARKINGS,
+      PropertyNames.CONTENT_ELEMENTS,
+      PropertyNames.PERMISSIONS);
+
   @Override
   public void initConfig(Config config) {
+    // Internal properties.
+    config.addKey("filenet.objectFactory",
+        FileNetObjectFactory.class.getName());
+
+    // Required properties.
     config.addKey("filenet.contentEngineUrl", null);
     config.addKey("filenet.username", null);
     config.addKey("filenet.password", null);
     config.addKey("filenet.objectStore", null);
-    config.addKey("filenet.objectFactory",
-        FileNetObjectFactory.class.getName());
+
+    // Optional properties.
+    config.addKey("filenet.additionalWhereClause", "");
     // Display URL MessageFormat pattern substitutions
     // {0}: Document ID
     // {1}: Version Series ID
@@ -79,9 +112,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
     config.addKey("filenet.displayUrlPattern",
         "/WorkplaceXT/getContent?objectStoreName={2}"
         + "&objectType=document&versionStatus=1&vsId={1}");
-    config.addKey("filenet.additionalWhereClause", "");
-    config.addKey("filenet.deleteAdditionalWhereClause", "");
-    config.addKey("filenet.excludedMetadata", "");
+    config.addKey("filenet.excludedMetadata",
+        Joiner.on(',').join(excludedMetadata));
     config.addKey("filenet.includedMetadata", "");
     config.addKey("filenet.metadataDateFormat", "yyyy-MM-dd");
     config.addKey("adaptor.namespace", DEFAULT_NAMESPACE);

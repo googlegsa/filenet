@@ -9,10 +9,16 @@ filenet.contentEngineUrl =
 filenet.username =
 filenet.password =
 filenet.objectStore =
-filenet.displayUrl  =
 
 # Optional properties.
 # filenet.additionalWhereClause =
-# filenet.deleteAdditionalWhereClause =
-# filenet.excludedMetadata =
+# filenet.displayUrl = /WorkplaceXT/getContent?objectStoreName={2}\
+#     &objectType=document&versionStatus=1&vsId={1}
+# filenet.excludedMetadata = Accessor, ActiveMarkings, CmIndexingFailureCode, \
+#     CmRetentionDate, ComponentBindingLabel, ContentElements, \
+#     ContentRetentionDate, DateContentLastAccessed, EntryTemplateId, \
+#     EntryTemplateLaunchedWorkflowNumber, EntryTemplateObjectStoreName, \
+#     IgnoreRedirect, IsInExceptionState, IsVersioningEnabled, LockOwner, \
+#     Permissions, ReservationType
 # filenet.includedMetadata =
+# filenet.metadataDateFormat = yyyy-MM-dd

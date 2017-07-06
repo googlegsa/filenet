@@ -484,7 +484,8 @@ public class FileNetAdaptorTest {
   @Test
   public void testInit_excludedMetadata_default() throws Exception {
     adaptor.init(context);
-    assertEquals(ImmutableSet.of(), getConfigOptions().getExcludedMetadata());
+    assertEquals(FileNetAdaptor.excludedMetadata,
+        getConfigOptions().getExcludedMetadata());
   }
 
   @Test
