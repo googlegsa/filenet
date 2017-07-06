@@ -28,6 +28,7 @@ import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
+import com.google.enterprise.adaptor.PollingIncrementalLister;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
@@ -48,7 +49,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Gets FileNet repository content into a Google Search Appliance. */
-public class FileNetAdaptor extends AbstractAdaptor {
+public class FileNetAdaptor extends AbstractAdaptor
+    implements PollingIncrementalLister {
   private static final Logger logger =
       Logger.getLogger(FileNetAdaptor.class.getName());
 
@@ -133,6 +135,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
     documentTraverser =
         configOptions.getObjectFactory().getTraverser(configOptions);
+
+    context.setPollingIncrementalLister(this);
   }
 
   @VisibleForTesting
@@ -154,6 +158,12 @@ public class FileNetAdaptor extends AbstractAdaptor {
     pusher.pushRecords(Arrays.asList(
         new Record.Builder(newDocId(new Checkpoint("document", null, null)))
             .setCrawlImmediately(true).build()));
+  }
+
+  @Override
+  public void getModifiedDocIds(DocIdPusher pusher) throws IOException,
+      InterruptedException {
+    documentTraverser.getModifiedDocIds(pusher);
   }
 
   @Override
@@ -204,6 +214,9 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
   static interface Traverser {
     void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
+        throws IOException, InterruptedException;
+
+    void getModifiedDocIds(DocIdPusher pusher)
         throws IOException, InterruptedException;
 
     void getDocContent(Id id, Request request, Response response)

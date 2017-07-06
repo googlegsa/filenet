@@ -328,6 +328,58 @@ public class DocumentTraverserTest {
   }
 
   @Test
+  public void testGetModifiedDocIds_noneNew() throws Exception {
+    options = TestObjectFactory.newConfigOptions(
+        ImmutableMap.<String, String>of("feed.maxUrls", "3"));
+    addDocuments(docEntries);
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    assertTrue(String.valueOf(docEntries.length), docEntries.length > 1);
+    RecordingDocIdPusher pusher = new RecordingDocIdPusher();
+    traverser.getModifiedDocIds(pusher);
+    assertEquals(0, pusher.getRecords().size());
+  }
+
+  @Test
+  public void testGetModifiedDocIds_someNew() throws Exception {
+    options = TestObjectFactory.newConfigOptions(
+        ImmutableMap.<String, String>of("feed.maxUrls", "3"));
+    addDocuments(docEntries);
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    RecordingDocIdPusher pusher = new RecordingDocIdPusher();
+
+    String newDate = dateFormatter.format(new Date());
+    String[][] newEntries = {
+      { "AAAAAAAA-5000-0000-0000-000000000000", newDate },
+      { "AAAAAAAA-6000-0000-0000-000000000000", newDate },
+      { "AAAAAAAA-7000-0000-0000-000000000000", newDate },
+      { "AAAAAAAA-8000-0000-0000-000000000000", newDate }
+    };
+    addDocuments(newEntries);
+
+    traverser.getModifiedDocIds(pusher);
+    assertEquals(ImmutableList.of(
+        new Record.Builder(
+            newDocId(new Id("{AAAAAAAA-5000-0000-0000-000000000000}")))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(
+            newDocId(new Id("{AAAAAAAA-6000-0000-0000-000000000000}")))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(
+            newDocId(new Id("{AAAAAAAA-7000-0000-0000-000000000000}")))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(
+            newDocId(new Id("{AAAAAAAA-8000-0000-0000-000000000000}")))
+            .setCrawlImmediately(true).build()),
+        pusher.getRecords());
+
+    pusher.reset();
+    traverser.getModifiedDocIds(pusher);
+    assertEquals(0, pusher.getRecords().size());
+  }
+
+  @Test
   public void testContentSize() throws Exception {
     testMimeTypeAndContentSize("text/plain", 1024 * 1024 * 32, true);
   }

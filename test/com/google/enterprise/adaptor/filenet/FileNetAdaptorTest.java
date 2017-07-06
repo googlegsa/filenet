@@ -704,4 +704,47 @@ public class FileNetAdaptorTest {
     assertEquals("Hello from document {AAAAAAAA-0000-0000-0000-000000000004}",
         baos.toString("UTF-8"));
   }
+
+  @Test
+  public void testGetModifiedDocIds() throws Exception {
+    config.overrideKey("feed.maxUrls", "3");
+    adaptor.init(context);
+    RecordingDocIdPusher pusher = getContextPusher();
+    adaptor.getModifiedDocIds(pusher);
+
+    // Each call to MockTraverser.getModifiedDocIds() sends two batches.
+    assertEquals(ImmutableList.of(
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050001}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050002}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050003}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050004}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050005}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050006}"))
+            .setCrawlImmediately(true).build()),
+        pusher.getRecords());
+
+    pusher.reset();
+    adaptor.getModifiedDocIds(pusher);
+
+    // Next 2 batches should be based off a preserved checkpoint.
+    assertEquals(ImmutableList.of(
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050007}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050008}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050009}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050010}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050011}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050012}"))
+            .setCrawlImmediately(true).build()),
+        pusher.getRecords());
+  }
 }
