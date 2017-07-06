@@ -88,35 +88,28 @@ class ObjectMocks {
   }
 
   /** Gets a basic Document. */
-  public static Document mockDocument(MockObjectStore objectStore,
-      String guid, String timeStr, boolean isReleasedVersion) {
-    return mockDocument(objectStore, guid, timeStr, isReleasedVersion,
-        null, null, new AccessPermissionListMock());
+  public static void mockDocument(MockObjectStore objectStore,
+      String guid, String timeStr, VersionStatus versionStatus,
+      Double contentSize) {
+    mockDocument(objectStore, guid, timeStr, versionStatus,
+        contentSize, null, new AccessPermissionListMock());
   }
 
   /** Gets a Document with ContentSize and MimeType properties. */
-  public static Document mockDocument(MockObjectStore objectStore,
-      String guid, String timeStr, boolean isReleasedVersion,
+  public static void mockDocument(MockObjectStore objectStore,
+      String guid, String timeStr, VersionStatus versionStatus,
       Double contentSize, String mimeType) {
-    return mockDocument(objectStore, guid, timeStr, isReleasedVersion,
+    mockDocument(objectStore, guid, timeStr, versionStatus,
         contentSize, mimeType, new AccessPermissionListMock());
-  }
-
-  /** Gets a Document with a Permissions property. */
-  public static Document mockDocument(MockObjectStore objectStore,
-      String guid, String timeStr, boolean isReleasedVersion,
-      AccessPermissionList perms) {
-    return mockDocument(objectStore, guid, timeStr, isReleasedVersion,
-        null, null, perms);
   }
 
   /**
    * Gets a Document with ContentSize, MimeType, and Permissions properties.
    */
-  public static Document mockDocument(MockObjectStore objectStore,
-      String guid, String timeStr, boolean isReleasedVersion,
+  public static void mockDocument(MockObjectStore objectStore,
+      String guid, String timeStr, VersionStatus versionStatus,
       Double contentSize, String mimeType, AccessPermissionList perms) {
-    return mockDocument(objectStore, guid, timeStr, isReleasedVersion,
+    mockDocument(objectStore, guid, timeStr, versionStatus,
          contentSize, mimeType, perms, new ActiveMarkingListMock());
   }
 
@@ -124,8 +117,8 @@ class ObjectMocks {
    * Gets a Document with ContentSize, MimeType, ActiveMarkings, and
    * Permissions properties.
    */
-  public static Document mockDocument(MockObjectStore objectStore,
-      String guid, String timeStr, boolean isReleasedVersion,
+  public static void mockDocument(MockObjectStore objectStore,
+      String guid, String timeStr, VersionStatus versionStatus,
       Double contentSize, String mimeType, AccessPermissionList perms,
       ActiveMarkingList activeMarkings) {
     VersionSeries vs = createMock(VersionSeries.class);
@@ -161,9 +154,8 @@ class ObjectMocks {
     expect(doc.get_DateLastModified()).andStubReturn(parseTime(timeStr));
     expect(doc.get_CurrentVersion()).andStubReturn(doc);
     expect(doc.get_ReleasedVersion()).andStubReturn(
-        isReleasedVersion ? doc : null);
-    expect(doc.get_VersionStatus()).andStubReturn(
-        isReleasedVersion ? VersionStatus.RELEASED : VersionStatus.SUPERSEDED);
+        (versionStatus == VersionStatus.RELEASED) ? doc : null);
+    expect(doc.get_VersionStatus()).andStubReturn(versionStatus);
     expect(doc.get_Owner()).andStubReturn(null);
     expect(doc.accessContentStream(eq(0))).andStubReturn(
         new ByteArrayInputStream("sample content".getBytes(UTF_8)));
@@ -174,10 +166,9 @@ class ObjectMocks {
     expect(doc.getProperties()).andStubReturn(properties);
     replay(vs, properties, doc);
     objectStore.addObject(doc);
-    return doc;
   }
 
-  public static Document mockDocumentNotFound(MockObjectStore objectStore,
+  public static void mockDocumentNotFound(MockObjectStore objectStore,
       String guid) {
     Document doc = createMock(Document.class);
     doc.refresh(anyObject(PropertyFilter.class));
@@ -186,7 +177,6 @@ class ObjectMocks {
     expect(doc.get_Id()).andStubReturn(newId(guid));
     replay(doc);
     objectStore.addObject(doc);
-    return doc;
   }
 
   /**
@@ -207,12 +197,13 @@ class ObjectMocks {
   }
 
   public static DeletionEvent mockDeletionEvent(MockObjectStore objectStore,
-      String vsId, String eventId, String timeStr, boolean isReleasedVersion) {
+      String vsId, String eventId, String timeStr,
+      VersionStatus versionStatus) {
     VersionSeries vs = createMock(VersionSeries.class);
     expect(vs.get_Id()).andStubReturn(newId(vsId));
     ObjectStore os = createMock(ObjectStore.class);
     expect(os.fetchObject(ClassNames.VERSION_SERIES, newId(vsId), null));
-    if (isReleasedVersion) {
+    if (versionStatus == VersionStatus.RELEASED) {
       expectLastCall().andStubThrow(new EngineRuntimeException());
     } else {
       expectLastCall().andStubReturn(vs);
