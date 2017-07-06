@@ -18,9 +18,7 @@ import static com.google.enterprise.adaptor.IOHelper.copyStream;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
@@ -34,6 +32,7 @@ import com.filenet.api.collection.IndependentObjectSet;
 import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PropertyNames;
+import com.filenet.api.constants.VersionStatus;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.IndependentObject;
 import com.filenet.api.core.ObjectStore;
@@ -45,13 +44,14 @@ import com.filenet.api.util.Id;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.Principal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import javax.security.auth.Subject;
@@ -142,9 +142,6 @@ class FileNetProxies implements ObjectFactory {
   interface MockObjectStore extends ObjectStore {
     /** Adds an object to the store. */
     void addObject(Document object);
-
-    /** Retrieves all the objects in the store. */
-    Collection<Document> getObjects();
   }
 
   static class MockObjectStoreImpl {
@@ -155,17 +152,36 @@ class FileNetProxies implements ObjectFactory {
     /** Adds an object to the store. */
     public void addObject(Document object) {
       objects.put(object.get_Id(), object);
-    }
 
-    /** Retrieves all the objects in the store. */
-    public Collection<Document> getObjects() {
-      return objects.values();
+      // Insert the columns used by the various queries into H2.
+      String sql = "insert into Document(Id, VersionSeries, DateLastModified, "
+          + "VersionStatus, ContentSize) values(?, ?, ?, ?, ?)";
+      try (Connection connection = JdbcFixture.getConnection();
+          PreparedStatement stmt = connection.prepareStatement(sql)) {
+        stmt.setString(1, object.get_Id().toString());
+        stmt.setString(2, object.get_Id().toString());
+        // TODO(jlacey): Hack while we're using the mock objects for inserts.
+        try {
+          Date modified = object.get_DateLastModified();
+          stmt.setTimestamp(3, new Timestamp(modified.getTime()));
+          stmt.setInt(4, object.get_VersionStatus().getValue());
+          stmt.setObject(5, object.get_ContentSize());
+        } catch (AssertionError e) {
+          // The mock didn't support one of our called methods; use defaults.
+          stmt.setTimestamp(3, new Timestamp(new Date().getTime()));
+          stmt.setInt(4, VersionStatus.RELEASED.getValue());
+          stmt.setDouble(5, 1000d);
+        }
+        stmt.executeUpdate();
+      } catch (SQLException e) {
+        throw new AssertionError(e);
+      }
     }
 
     /* @see ObjectStore#fetchObject */
     public IndependentObject fetchObject(String type, Id id,
         PropertyFilter filter) {
-      if (ClassNames.DOCUMENT.equals(type)) {
+      if (ClassNames.DOCUMENT.equalsIgnoreCase(type)) {
         Document obj = objects.get(id);
         if (obj == null) {
           throw new EngineRuntimeException(ExceptionCode.E_OBJECT_NOT_FOUND);
@@ -180,18 +196,15 @@ class FileNetProxies implements ObjectFactory {
 
   @Override
   public SearchWrapper getSearch(ObjectStore objectStore) {
-    IndependentObjectSet objectSet =
-        new IndependentObjectSetMock(
-            ((MockObjectStore) objectStore).getObjects());
-    return new SearchMock(ImmutableMap.of(ClassNames.DOCUMENT, objectSet));
+    return new SearchMock(objectStore);
   }
 
   // The rest of the tables are in TraverserFactoryFixture.java in v3.
   private static final String CREATE_TABLE_DOCUMENT =
       "create table Document("
-      + PropertyNames.ID + " varchar, "
+      + PropertyNames.ID + " varchar unique, "
       + PropertyNames.DATE_LAST_MODIFIED + " timestamp, "
-      + PropertyNames.CONTENT_SIZE + " int, "
+      + PropertyNames.CONTENT_SIZE + " double, "
       + PropertyNames.NAME + " varchar, "
       + PropertyNames.SECURITY_FOLDER + " varchar, "
       + PropertyNames.SECURITY_POLICY + " varchar, "
@@ -203,22 +216,13 @@ class FileNetProxies implements ObjectFactory {
   }
 
   /**
-   * Smoke tests the queries against H2 but returns mock results.
+   * Executes queries against H2 to get the IDs of mock results to return.
    */
   static class SearchMock extends SearchWrapper {
-    /** A map with case-insensitive keys for natural table name matching. */
-    private final ImmutableSortedMap<String, IndependentObjectSet> results;
+    private final ObjectStore objectStore;
 
-    /**
-     * Constructs a mock to return the given results for each table.
-     *
-     * @param results a map from table names to the object sets to
-     *     return as results for queries against those tables
-     */
-    protected SearchMock(
-        ImmutableMap<String, ? extends IndependentObjectSet> results) {
-      this.results = ImmutableSortedMap.<String, IndependentObjectSet>orderedBy(
-          String.CASE_INSENSITIVE_ORDER).putAll(results).build();
+    private SearchMock(ObjectStore objectStore) {
+      this.objectStore = objectStore;
     }
 
     @Override
@@ -243,32 +247,17 @@ class FileNetProxies implements ObjectFactory {
         pageSize = 500; // Mimic ServerCacheCofiguration.QueryPageDefaultSize.
       }
 
-      // Execute the queries.
+      // Execute the query, and fetch the objects specified by IDs in
+      // the result set, limited by the page size.
       try (Statement stmt = JdbcFixture.getConnection().createStatement();
           ResultSet rs = stmt.executeQuery(h2Query)) {
-        // Look up the results to return by table name.
         String tableName = rs.getMetaData().getTableName(1);
-        IndependentObjectSet set = results.get(tableName);
-
-        if (set == null) {
-          new IndependentObjectSetMock(ImmutableSet.<IndependentObject>of());
-        }
-
-        // We can't get the size of objectSet easily, so we always
-        // copy the objects, limited by the page size.
-        Iterator<?> oldObjects = set.iterator();
         List<IndependentObject> newObjects = new ArrayList<>();
         int count = 0;
-        while (oldObjects.hasNext() && count++ < pageSize) {
-          IndependentObject object = (IndependentObject) oldObjects.next();
-          // Check to see if the results should be selective, and
-          // return the single document asked for in the query.
-          // TODO(jlacey): Checking for "SELECT Id FROM" is a hack. Use H2.
-          if (!query.startsWith("SELECT Id FROM")
-              || (object instanceof Document
-                  && query.contains(((Document) object).get_Id().toString()))) {
-            newObjects.add(object);
-          }
+        while (rs.next() && count++ < pageSize) {
+          newObjects.add(
+              objectStore.fetchObject(
+                  tableName, new Id(rs.getString(PropertyNames.ID)), filter));
         }
         return new IndependentObjectSetMock(newObjects);
       } catch (SQLException e) {

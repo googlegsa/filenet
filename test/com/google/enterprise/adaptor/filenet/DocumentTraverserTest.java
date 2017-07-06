@@ -14,6 +14,7 @@
 
 package com.google.enterprise.adaptor.filenet;
 
+import static com.filenet.api.constants.VersionStatus.RELEASED;
 import static com.google.enterprise.adaptor.Acl.InheritanceType;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint.getQueryTimeString;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
@@ -134,7 +135,7 @@ public class DocumentTraverserTest {
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     Date now = new Date();
     String lastModified = dateFormatter.format(now);
-    mockDocument(objectStore, id, lastModified, true,
+    mockDocument(objectStore, id, lastModified, RELEASED, 42d, "text/plain",
         TestObjectFactory.getPermissions(PermissionSource.SOURCE_DIRECT));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
@@ -327,16 +328,24 @@ public class DocumentTraverserTest {
   }
 
   @Test
-  public void testMimeTypesAndSizes() throws Exception {
+  public void testContentSize() throws Exception {
     testMimeTypeAndContentSize("text/plain", 1024 * 1024 * 32, true);
+  }
+
+  @Test
+  public void testContentSize_tooLarge() throws Exception {
     testMimeTypeAndContentSize("text/plain", 1024 * 1024 * 1024 * 3L, false);
+  }
+
+  @Test
+  public void testContentSize_mimeTypeIgnored() throws Exception {
     testMimeTypeAndContentSize("video/3gpp", 1024 * 1024 * 100, true);
   }
 
   private void testMimeTypeAndContentSize(String mimeType, double size,
       boolean expectNotNull) throws Exception {
     MockObjectStore os = getObjectStore();
-    mockDocument(os, "AAAAAAA1", DOCUMENT_TIMESTAMP, false, size, mimeType);
+    mockDocument(os, "AAAAAAA1", DOCUMENT_TIMESTAMP, RELEASED, size, mimeType);
 
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
@@ -359,7 +368,7 @@ public class DocumentTraverserTest {
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     DocId docId = newDocId(new Id(id));
     MockObjectStore os = getObjectStore();
-    mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
         TestObjectFactory.getPermissions(
             PermissionSource.SOURCE_DIRECT,
             PermissionSource.SOURCE_TEMPLATE,
@@ -373,7 +382,9 @@ public class DocumentTraverserTest {
     assertEquals(
         new Metadata(
             ImmutableMap.of(PropertyNames.ID, id.substring(1, id.length() - 1),
-                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE)
+                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE,
+                PropertyNames.CONTENT_SIZE, "42.0",
+                PropertyNames.MIME_TYPE, "text/plain")
             .entrySet()),
         response.getMetadata());
 
@@ -405,7 +416,7 @@ public class DocumentTraverserTest {
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     DocId docId = newDocId(new Id(id));
     MockObjectStore os = getObjectStore();
-    mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
         TestObjectFactory.getPermissions(
             PermissionSource.SOURCE_DIRECT,
             PermissionSource.SOURCE_TEMPLATE,
@@ -420,7 +431,9 @@ public class DocumentTraverserTest {
     assertEquals(
         new Metadata(
             ImmutableMap.of(PropertyNames.ID, id.substring(1, id.length() - 1),
-                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE)
+                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE,
+                PropertyNames.CONTENT_SIZE, "42.0",
+                PropertyNames.MIME_TYPE, "text/plain")
             .entrySet()),
         response.getMetadata());
 
@@ -437,7 +450,7 @@ public class DocumentTraverserTest {
     String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
     DocId docId = newDocId(new Id(id));
     MockObjectStore os = getObjectStore();
-    mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
         TestObjectFactory.getPermissions(
             PermissionSource.SOURCE_DIRECT,
             PermissionSource.SOURCE_TEMPLATE,
@@ -452,7 +465,9 @@ public class DocumentTraverserTest {
     assertEquals(
         new Metadata(
             ImmutableMap.of(PropertyNames.ID, id.substring(1, id.length() - 1),
-                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE)
+                PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE,
+                PropertyNames.CONTENT_SIZE, "42.0",
+                PropertyNames.MIME_TYPE, "text/plain")
             .entrySet()),
         response.getMetadata());
 
@@ -508,7 +523,7 @@ public class DocumentTraverserTest {
     DocId docId = newDocId(new Id(id));
     MockObjectStore os = getObjectStore();
 
-    mockDocument(os, id, DOCUMENT_TIMESTAMP, true,
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED,
         1000d, "text/plain",
         TestObjectFactory.getPermissions(
             PermissionSource.SOURCE_DIRECT,
@@ -588,7 +603,7 @@ public class DocumentTraverserTest {
   private void addDocuments(String[][] entries) {
     MockObjectStore os = getObjectStore();
     for (String[] entry : entries) {
-      mockDocument(os, entry[0], entry[1], /* releasedVersion */ true);
+      mockDocument(os, entry[0], entry[1], RELEASED, 42d);
     }
   }
 
