@@ -17,23 +17,34 @@ package com.google.enterprise.adaptor.filenet;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
+import static com.google.enterprise.adaptor.filenet.Permissions.AUTHENTICATED_USERS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.US;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.AbstractAdaptor;
 import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
+import com.google.enterprise.adaptor.GroupPrincipal;
+import com.google.enterprise.adaptor.Principal;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
+import com.google.enterprise.adaptor.UserPrincipal;
 
+import com.filenet.api.collection.IndependentObjectSet;
+import com.filenet.api.constants.GuidConstants;
 import com.filenet.api.constants.PropertyNames;
+import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
+import com.filenet.api.property.PropertyFilter;
+import com.filenet.api.security.User;
 import com.filenet.api.util.Id;
 
 import java.io.IOException;
@@ -42,6 +53,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -154,6 +167,10 @@ public class FileNetAdaptor extends AbstractAdaptor {
     pusher.pushRecords(Arrays.asList(
         new Record.Builder(newDocId(new Checkpoint("document", null, null)))
             .setCrawlImmediately(true).build()));
+
+    if (!configOptions.markAllDocsAsPublic()) {
+      pushGroups(pusher);
+    }
   }
 
   @Override
@@ -200,6 +217,83 @@ public class FileNetAdaptor extends AbstractAdaptor {
         resp.respondNotFound();
         return;
     }
+  }
+
+  /** Pushes the group of #AUTHENTICATED-USERS (all Users). */
+  void pushGroups(DocIdPusher pusher) throws IOException, InterruptedException {
+    try (AutoConnection connection = configOptions.getConnection()) {
+      ObjectStore objectStore = configOptions.getObjectStore(connection);
+      logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
+
+      ObjectFactory objectFactory = configOptions.getObjectFactory();
+      SearchWrapper search = objectFactory.getSearch(objectStore);
+      String globalNamespace = configOptions.getGlobalNamespace();
+
+      String lastId = Id.ZERO_ID.toString();
+      int maxRecords = configOptions.getMaxFeedUrls();
+      int userCount;
+      ImmutableList.Builder<Principal> builder = ImmutableList.builder();
+      do {
+        String query = buildUsersQueryString(lastId, maxRecords);
+        logger.log(Level.FINE, "Query for batch of users: {0}", query);
+        IndependentObjectSet objectSet = search.fetchObjects(query, maxRecords,
+            getUsersPropertyFilter(), SearchWrapper.NOT_CONTINUABLE);
+        userCount = 0;
+        Iterator<?> objects = objectSet.iterator();
+        while (objects.hasNext()) {
+          User user = (User) objects.next();
+          builder.add(new UserPrincipal(user.get_Name(), globalNamespace));
+          lastId = user.get_Id();
+          userCount++;
+        }
+      } while (userCount == maxRecords);
+      List<Principal> members = builder.build();
+      // TODO(bmj): push with FeedType.FULL
+      pusher.pushGroupDefinitions(
+          ImmutableMap.<GroupPrincipal, List<Principal>>of(
+              new GroupPrincipal(AUTHENTICATED_USERS,
+                  configOptions.getLocalNamespace()),
+              members),
+          /* everyThingCaseSensitive */ true);
+      logger.log(Level.FINE, "Pushed group {0} with {1} members.",
+          new Object[] { AUTHENTICATED_USERS, members.size() });
+    } catch (EngineRuntimeException e) {
+      throw new IOException(e);
+    }
+  }
+
+  /**
+   * Construct FileNet query to fetch a batch of Users from FileNet repository.
+   */
+  private static String buildUsersQueryString(String lastId, int maxRecords) {
+    StringBuilder query = new StringBuilder("SELECT TOP ")
+        .append(maxRecords)
+        .append(" ")
+        .append(PropertyNames.ID)
+        .append(",")
+        .append(PropertyNames.NAME)
+        .append(" FROM ")
+        .append(GuidConstants.Class_User)
+        .append(" WHERE ")
+        .append(PropertyNames.ID)
+        .append(" > '")
+        .append(lastId)
+        .append("' ORDER BY ")
+        .append(PropertyNames.ID);
+    return query.toString();
+  }
+
+  /**
+   * Creates a property filter for pushGroups. Seemingly contrary to
+   * the FileNet API doc, object properties in the SQL select list
+   * must be included here in order for the filter to be used when
+   * fetching those object's own properties.
+   */
+  private static PropertyFilter getUsersPropertyFilter() {
+    PropertyFilter filter = new PropertyFilter();
+    filter.addIncludeProperty(1, null, null, PropertyNames.ID, null);
+    filter.addIncludeProperty(1, null, null, PropertyNames.NAME, null);
+    return filter;
   }
 
   static interface Traverser {
