@@ -43,7 +43,8 @@ class TestObjectFactory {
     config.overrideKey("filenet.username", "whatever");
     config.overrideKey("filenet.password", "opensesame");
     config.overrideKey("filenet.objectStore", "ObjStore");
-    config.overrideKey("filenet.displayUrl", "http://localhost/getContent");
+    config.overrideKey("filenet.displayUrlPattern",
+         "http://localhost/getContent?os={2}&vs={1}");
     config.overrideKey("filenet.objectFactory", FileNetProxies.class.getName());
     config.overrideKey("filenet.contentEngineUrl",
         "http://localhost/wsi/FNCEWS40MTOM");
