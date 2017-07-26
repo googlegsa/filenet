@@ -240,7 +240,7 @@ class ObjectMocks {
   /**
    * Returns a Property with the specified type, name, and value.
    */
-  public static Property mockProperty(Class<? extends Property>  clazz,
+  public static Property mockProperty(Class<? extends Property> clazz,
         String name, Object value) {
     Property property = createMock(clazz);
     expect(property.getPropertyName()).andStubReturn(name);

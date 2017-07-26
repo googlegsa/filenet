@@ -72,6 +72,46 @@ class EngineCollectionMocks {
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class BooleanListMock
+      extends ArrayList implements BooleanList {
+    public BooleanListMock(Boolean... booleans) {
+      Collections.addAll(this, booleans);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class DateTimeListMock
+      extends ArrayList implements DateTimeList {
+    public DateTimeListMock(Date... dates) {
+      Collections.addAll(this, dates);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class Float64ListMock
+      extends ArrayList implements Float64List {
+    public Float64ListMock(Double... doubles) {
+      Collections.addAll(this, doubles);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class IdListMock
+      extends ArrayList implements IdList {
+    public IdListMock(Id... ids) {
+      Collections.addAll(this, ids);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class Integer32ListMock
+      extends ArrayList implements Integer32List {
+    public Integer32ListMock(Integer... integers) {
+      Collections.addAll(this, integers);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
   public static class PropertyDefinitionListMock
       extends ArrayList implements PropertyDefinitionList {
     PropertyDefinitionListMock(PropertyDefinition... markings) {
@@ -84,6 +124,14 @@ class EngineCollectionMocks {
       extends ArrayList implements SecurityTemplateList {
     SecurityTemplateListMock(SecurityTemplate... templates) {
       Collections.addAll(this, templates);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class StringListMock
+      extends ArrayList implements StringList {
+    public StringListMock(String... strings) {
+      Collections.addAll(this, strings);
     }
   }
 
@@ -166,54 +214,6 @@ class EngineCollectionMocks {
 
     public int size() {
       return values.size();
-    }
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  public static class BooleanListMock
-      extends ArrayList implements BooleanList {
-    public BooleanListMock(Boolean... booleans) {
-      Collections.addAll(this, booleans);
-    }
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  public static class DateTimeListMock
-      extends ArrayList implements DateTimeList {
-    public DateTimeListMock(Date... dates) {
-      Collections.addAll(this, dates);
-    }
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  public static class Float64ListMock
-      extends ArrayList implements Float64List {
-    public Float64ListMock(Double... doubles) {
-      Collections.addAll(this, doubles);
-    }
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  public static class IdListMock
-      extends ArrayList implements IdList {
-    public IdListMock(Id... ids) {
-      Collections.addAll(this, ids);
-    }
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  public static class Integer32ListMock
-      extends ArrayList implements Integer32List {
-    public Integer32ListMock(Integer... integers) {
-      Collections.addAll(this, integers);
-    }
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  public static class StringListMock
-      extends ArrayList implements StringList {
-    public StringListMock(String... strings) {
-      Collections.addAll(this, strings);
     }
   }
 }

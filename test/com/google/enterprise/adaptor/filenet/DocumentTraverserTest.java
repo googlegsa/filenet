@@ -443,7 +443,8 @@ public class DocumentTraverserTest {
     mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
         ImmutableList.<Property>of(
             mockProperty("foo", "fooValue"),
-            mockProperty("bar", "barValue")),
+            mockProperty("bar", "barValue"),
+            mockProperty("baz", "bazValue")),
         new AccessPermissionListMock(),
         new ActiveMarkingListMock());
 
@@ -454,8 +455,7 @@ public class DocumentTraverserTest {
 
     assertEquals(
         new Metadata(
-            ImmutableMap.of("foo", "fooValue", "bar", "barValue")
-            .entrySet()),
+            ImmutableMap.of("foo", "fooValue", "bar", "barValue").entrySet()),
         response.getMetadata());
   }
 
@@ -471,7 +471,8 @@ public class DocumentTraverserTest {
     mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
         ImmutableList.<Property>of(
             mockProperty("foo", "fooValue"),
-            mockProperty("bar", "barValue")),
+            mockProperty("bar", "barValue"),
+            mockProperty("baz", "bazValue")),
         new AccessPermissionListMock(),
         new ActiveMarkingListMock());
 
