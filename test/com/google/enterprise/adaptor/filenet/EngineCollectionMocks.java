@@ -17,15 +17,21 @@ package com.google.enterprise.adaptor.filenet;
 import com.filenet.api.admin.PropertyDefinition;
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.ActiveMarkingList;
+import com.filenet.api.collection.BooleanList;
+import com.filenet.api.collection.DateTimeList;
 import com.filenet.api.collection.DocumentSet;
 import com.filenet.api.collection.EngineSet;
+import com.filenet.api.collection.Float64List;
 import com.filenet.api.collection.FolderSet;
 import com.filenet.api.collection.GroupSet;
+import com.filenet.api.collection.IdList;
 import com.filenet.api.collection.IndependentObjectSet;
+import com.filenet.api.collection.Integer32List;
 import com.filenet.api.collection.PageIterator;
 import com.filenet.api.collection.PropertyDefinitionList;
 import com.filenet.api.collection.SecurityPolicySet;
 import com.filenet.api.collection.SecurityTemplateList;
+import com.filenet.api.collection.StringList;
 import com.filenet.api.core.Document;
 import com.filenet.api.core.Folder;
 import com.filenet.api.core.IndependentObject;
@@ -34,10 +40,12 @@ import com.filenet.api.security.ActiveMarking;
 import com.filenet.api.security.Group;
 import com.filenet.api.security.SecurityPolicy;
 import com.filenet.api.security.SecurityTemplate;
+import com.filenet.api.util.Id;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 
 /**
@@ -64,6 +72,46 @@ class EngineCollectionMocks {
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class BooleanListMock
+      extends ArrayList implements BooleanList {
+    public BooleanListMock(Boolean... booleans) {
+      Collections.addAll(this, booleans);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class DateTimeListMock
+      extends ArrayList implements DateTimeList {
+    public DateTimeListMock(Date... dates) {
+      Collections.addAll(this, dates);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class Float64ListMock
+      extends ArrayList implements Float64List {
+    public Float64ListMock(Double... doubles) {
+      Collections.addAll(this, doubles);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class IdListMock
+      extends ArrayList implements IdList {
+    public IdListMock(Id... ids) {
+      Collections.addAll(this, ids);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class Integer32ListMock
+      extends ArrayList implements Integer32List {
+    public Integer32ListMock(Integer... integers) {
+      Collections.addAll(this, integers);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
   public static class PropertyDefinitionListMock
       extends ArrayList implements PropertyDefinitionList {
     PropertyDefinitionListMock(PropertyDefinition... markings) {
@@ -76,6 +124,14 @@ class EngineCollectionMocks {
       extends ArrayList implements SecurityTemplateList {
     SecurityTemplateListMock(SecurityTemplate... templates) {
       Collections.addAll(this, templates);
+    }
+  }
+
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static class StringListMock
+      extends ArrayList implements StringList {
+    public StringListMock(String... strings) {
+      Collections.addAll(this, strings);
     }
   }
 

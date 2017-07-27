@@ -19,9 +19,11 @@ import static com.google.enterprise.adaptor.Acl.InheritanceType;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint.getQueryTimeString;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.newDocId;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.percentEscape;
+import static com.google.enterprise.adaptor.filenet.Logging.captureLogMessages;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockActiveMarking;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocument;
 import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockDocumentNotFound;
+import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockProperty;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.not;
@@ -36,6 +38,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
@@ -43,7 +46,14 @@ import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher.Record;
 import com.google.enterprise.adaptor.Metadata;
 import com.google.enterprise.adaptor.Request;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.ActiveMarkingListMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.BooleanListMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.DateTimeListMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.Float64ListMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.IdListMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.Integer32ListMock;
+import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.StringListMock;
 import com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
@@ -54,11 +64,14 @@ import com.filenet.api.constants.AccessRight;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.property.FilterElement;
+import com.filenet.api.property.Property;
+import com.filenet.api.property.PropertyBinaryList;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.util.Id;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -67,6 +80,7 @@ import java.io.ByteArrayOutputStream;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -329,20 +343,31 @@ public class DocumentTraverserTest {
 
   @Test
   public void testContentSize() throws Exception {
-    testMimeTypeAndContentSize("text/plain", 1024 * 1024 * 32, true);
+    testMimeTypeAndContentSize("text/plain", 1024 * 1024 * 32d, true);
+  }
+
+  @Ignore("TODO(bmj): fetchObject fails with this document")
+  @Test
+  public void testContentSize_null() throws Exception {
+    testMimeTypeAndContentSize("text/plain", null, true);
+  }
+
+  @Test
+  public void testContentSize_tooSmall() throws Exception {
+    testMimeTypeAndContentSize("text/plain", 0d, false);
   }
 
   @Test
   public void testContentSize_tooLarge() throws Exception {
-    testMimeTypeAndContentSize("text/plain", 1024 * 1024 * 1024 * 3L, false);
+    testMimeTypeAndContentSize("text/plain", 1024 * 1024 * 1024 * 3d, false);
   }
 
   @Test
   public void testContentSize_mimeTypeIgnored() throws Exception {
-    testMimeTypeAndContentSize("video/3gpp", 1024 * 1024 * 100, true);
+    testMimeTypeAndContentSize("video/3gpp", 1024 * 1024 * 100d, true);
   }
 
-  private void testMimeTypeAndContentSize(String mimeType, double size,
+  private void testMimeTypeAndContentSize(String mimeType, Double size,
       boolean expectNotNull) throws Exception {
     MockObjectStore os = getObjectStore();
     mockDocument(os, "AAAAAAA1", DOCUMENT_TIMESTAMP, RELEASED, size, mimeType);
@@ -406,6 +431,157 @@ public class DocumentTraverserTest {
     assertEquals(null, acl.getInheritFrom());
     assertEquals(null, acl.getInheritFromFragment());
   }
+
+  @Test
+  public void testGetDocContent_includedMetadata() throws Exception {
+    options = TestObjectFactory.newConfigOptions(
+        ImmutableMap.of("filenet.includedMetadata", "foo, bar"));
+
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
+        ImmutableList.<Property>of(
+            mockProperty("foo", "fooValue"),
+            mockProperty("bar", "barValue"),
+            mockProperty("baz", "bazValue")),
+        new AccessPermissionListMock(),
+        new ActiveMarkingListMock());
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
+    RecordingResponse response = new RecordingResponse();
+    traverser.getDocContent(new Id(id), request, response);
+
+    assertEquals(
+        new Metadata(
+            ImmutableMap.of("foo", "fooValue", "bar", "barValue").entrySet()),
+        response.getMetadata());
+  }
+
+  @Test
+  public void testGetDocContent_excludedMetadata() throws Exception {
+    options = TestObjectFactory.newConfigOptions(
+        ImmutableMap.of("filenet.includedMetadata", "foo, bar",
+                        "filenet.excludedMetadata", "bar"));
+
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
+        ImmutableList.<Property>of(
+            mockProperty("foo", "fooValue"),
+            mockProperty("bar", "barValue"),
+            mockProperty("baz", "bazValue")),
+        new AccessPermissionListMock(),
+        new ActiveMarkingListMock());
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
+    RecordingResponse response = new RecordingResponse();
+    traverser.getDocContent(new Id(id), request, response);
+
+    assertEquals(
+        new Metadata(ImmutableMap.of("foo", "fooValue").entrySet()),
+        response.getMetadata());
+  }
+
+  @Test
+  public void testGetDocContent_unsupportedMetadata() throws Exception {
+    options = TestObjectFactory.newConfigOptions(
+        ImmutableMap.of("filenet.includedMetadata", "binaryList"));
+
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
+        ImmutableList.<Property>of(
+            mockProperty(PropertyBinaryList.class, "binaryList", null)),
+        new AccessPermissionListMock(),
+        new ActiveMarkingListMock());
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
+    RecordingResponse response = new RecordingResponse();
+    List<String> messages = new ArrayList<String>();
+    captureLogMessages(DocumentTraverser.class,
+        "Property type is not supported", messages);
+    traverser.getDocContent(new Id(id), request, response);
+    assertEquals(messages.toString(), 1, messages.size());
+    assertEquals(
+        new Metadata(ImmutableMap.<String, String>of().entrySet()),
+        response.getMetadata());
+  }
+
+  @Test
+  public void testGetDocContent_allMetadataTypes() throws Exception {
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
+        ImmutableList.<Property>of(
+            mockProperty("isPublished", Boolean.TRUE),
+            mockProperty("isCatDead", new BooleanListMock(true, false)),
+            mockProperty("publishDate",
+                new DateTimeListMock(
+                    dateFormatter.parse("1976-06-18T22:00:00.000"),
+                    dateFormatter.parse(DOCUMENT_TIMESTAMP))),
+            mockProperty("measurement", new Float64ListMock(36d, 26d, 34d)),
+            mockProperty("child",
+                new IdListMock(
+                    new Id("{AAAAAAAA-0000-0000-0000-000000000001}"),
+                    new Id("{AAAAAAAA-0000-0000-0000-000000000002}"))),
+            mockProperty("pageCount", 42),
+            mockProperty("seats", new Integer32ListMock(2, 4)),
+            mockProperty("fruit", new StringListMock("apple", "banana"))),
+        new AccessPermissionListMock(),
+        new ActiveMarkingListMock());
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
+    RecordingResponse response = new RecordingResponse();
+    traverser.getDocContent(new Id(id), request, response);
+
+    ImmutableListMultimap.Builder<String, String> builder =
+        ImmutableListMultimap.builder();
+    assertEquals(
+        new Metadata(
+            // PropertyId
+            builder.put(PropertyNames.ID, id.substring(1, id.length() - 1))
+            // PropertyDateTime
+            .put(PropertyNames.DATE_LAST_MODIFIED, DOCUMENT_DATE)
+            // PropertyFloat64
+            .put(PropertyNames.CONTENT_SIZE, "42.0")
+            // PropertyString
+            .put(PropertyNames.MIME_TYPE, "text/plain")
+            // PropertyBoolean
+            .put("isPublished", "true")
+            // PropertyBooleanList
+            .put("isCatDead", "true")
+            .put("isCatDead", "false")
+            // PropertyDateTimeList
+            .put("publishDate", "1976-06-18")
+            .put("publishDate", DOCUMENT_DATE)
+            // PropertyFloat64List
+            .put("measurement", "36.0")
+            .put("measurement", "26.0")
+            .put("measurement", "34.0")
+            // PropertyIdList
+            .put("child", "AAAAAAAA-0000-0000-0000-000000000001")
+            .put("child", "AAAAAAAA-0000-0000-0000-000000000002")
+            // PropertyInteger32
+            .put("pageCount", "42")
+            // PropertyInteger32List
+            .put("seats", "2")
+            .put("seats", "4")
+            // PropertyStringList
+            .put("fruit", "apple")
+            .put("fruit", "banana")
+            .build()
+            .entries()),
+        response.getMetadata());
+  }
+
 
   @Test
   public void testGetDocContent_markAllDocsPublic() throws Exception {

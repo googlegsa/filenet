@@ -28,6 +28,12 @@ import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 
 import com.filenet.api.collection.AccessPermissionList;
 import com.filenet.api.collection.ActiveMarkingList;
+import com.filenet.api.collection.BooleanList;
+import com.filenet.api.collection.DateTimeList;
+import com.filenet.api.collection.Float64List;
+import com.filenet.api.collection.IdList;
+import com.filenet.api.collection.Integer32List;
+import com.filenet.api.collection.StringList;
 import com.filenet.api.constants.ClassNames;
 import com.filenet.api.constants.PropertyNames;
 import com.filenet.api.constants.VersionStatus;
@@ -39,11 +45,19 @@ import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
 import com.filenet.api.property.Properties;
 import com.filenet.api.property.Property;
+import com.filenet.api.property.PropertyBoolean;
+import com.filenet.api.property.PropertyBooleanList;
 import com.filenet.api.property.PropertyDateTime;
+import com.filenet.api.property.PropertyDateTimeList;
 import com.filenet.api.property.PropertyFilter;
 import com.filenet.api.property.PropertyFloat64;
+import com.filenet.api.property.PropertyFloat64List;
 import com.filenet.api.property.PropertyId;
+import com.filenet.api.property.PropertyIdList;
+import com.filenet.api.property.PropertyInteger32;
+import com.filenet.api.property.PropertyInteger32List;
 import com.filenet.api.property.PropertyString;
+import com.filenet.api.property.PropertyStringList;
 import com.filenet.api.security.ActiveMarking;
 import com.filenet.api.security.Marking;
 import com.filenet.api.util.Id;
@@ -51,7 +65,9 @@ import com.filenet.api.util.Id;
 import java.io.ByteArrayInputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 /*
  * These mocks make the assumption that the VersionSeries ID is the
@@ -121,28 +137,33 @@ class ObjectMocks {
       String guid, String timeStr, VersionStatus versionStatus,
       Double contentSize, String mimeType, AccessPermissionList perms,
       ActiveMarkingList activeMarkings) {
+    mockDocument(objectStore, guid, timeStr, versionStatus, contentSize,
+        mimeType, Collections.<Property>emptyList(), perms, activeMarkings);
+  }
+
+  /**
+   * Gets a Document with ContentSize, MimeType, ActiveMarkings,
+   * Permissions, and Additional Properties.
+   */
+  public static void mockDocument(MockObjectStore objectStore,
+      String guid, String timeStr, VersionStatus versionStatus,
+      Double contentSize, String mimeType, List<Property> moreProperties,
+      AccessPermissionList perms, ActiveMarkingList activeMarkings) {
     VersionSeries vs = createMock(VersionSeries.class);
     expect(vs.get_Id()).andStubReturn(newId(guid));
 
-    Property[] props = new Property[4];
-    props[0] = createMock(PropertyId.class);
-    expect(props[0].getPropertyName()).andStubReturn(PropertyNames.ID);
-    expect(props[0].getIdValue()).andStubReturn(newId(guid));
-    replay(props[0]);
-    props[1] = createMock(PropertyDateTime.class);
-    expect(props[1].getPropertyName())
-        .andStubReturn(PropertyNames.DATE_LAST_MODIFIED);
-    expect(props[1].getDateTimeValue()).andStubReturn(parseTime(timeStr));
-    replay(props[1]);
-    props[2] = createMock(PropertyString.class);
-    expect(props[2].getPropertyName()).andStubReturn(PropertyNames.MIME_TYPE);
-    expect(props[2].getStringValue()).andStubReturn(mimeType);
-    replay(props[2]);
-    props[3] = createMock(PropertyFloat64.class);
-    expect(props[3].getPropertyName())
-        .andStubReturn(PropertyNames.CONTENT_SIZE);
-    expect(props[3].getFloat64Value()).andStubReturn(contentSize);
-    replay(props[3]);
+    Property[] props = new Property[4 + moreProperties.size()];
+    int i = 0;
+    props[i++] = mockProperty(PropertyId.class, PropertyNames.ID, newId(guid));
+    props[i++] = mockProperty(PropertyDateTime.class,
+        PropertyNames.DATE_LAST_MODIFIED, parseTime(timeStr));
+    props[i++] = mockProperty(PropertyString.class, PropertyNames.MIME_TYPE,
+        mimeType);
+    props[i++] = mockProperty(PropertyFloat64.class, PropertyNames.CONTENT_SIZE,
+        contentSize);
+    for (Property property : moreProperties) {
+      props[i++] = property;
+    }
     Properties properties = createMock(Properties.class);
     expect(properties.toArray()).andStubReturn(props);
 
@@ -177,6 +198,81 @@ class ObjectMocks {
     expect(doc.get_Id()).andStubReturn(newId(guid));
     replay(doc);
     objectStore.addObject(doc);
+  }
+
+  /**
+   * Returns a Property with the specified name and value, of a type derived
+   * from value.
+   */
+  public static Property mockProperty(String name, Object value) {
+    if (value instanceof Boolean) {
+      return mockProperty(PropertyBoolean.class, name, value);
+    } else if (value instanceof BooleanList) {
+      return mockProperty(PropertyBooleanList.class, name, value);
+    } else if (value instanceof Date) {
+      return mockProperty(PropertyDateTime.class, name, value);
+    } else if (value instanceof DateTimeList) {
+      return mockProperty(PropertyDateTimeList.class, name, value);
+    } else if (value instanceof Double) {
+      return mockProperty(PropertyFloat64.class, name, value);
+    } else if (value instanceof Float64List) {
+      return mockProperty(PropertyFloat64List.class, name, value);
+    } else if (value instanceof Id) {
+      return mockProperty(PropertyId.class, name, value);
+    } else if (value instanceof IdList) {
+      return mockProperty(PropertyIdList.class, name, value);
+    } else if (value instanceof Integer) {
+      return mockProperty(PropertyInteger32.class, name, value);
+    } else if (value instanceof Integer32List) {
+      return mockProperty(PropertyInteger32List.class, name, value);
+    } else if (value instanceof String) {
+      return mockProperty(PropertyString.class, name, value);
+    } else if (value instanceof StringList) {
+      return mockProperty(PropertyStringList.class, name, value);
+    } else if (value == null) {
+      throw new IllegalArgumentException("Property value may not be null.");
+    } else {
+      throw new IllegalArgumentException("Unsupported Property type: "
+          + value.getClass().getName());
+    }
+  }
+
+  /**
+   * Returns a Property with the specified type, name, and value.
+   */
+  public static Property mockProperty(Class<? extends Property> clazz,
+        String name, Object value) {
+    Property property = createMock(clazz);
+    expect(property.getPropertyName()).andStubReturn(name);
+    if (PropertyBoolean.class.equals(clazz)) {
+      expect(property.getBooleanValue()).andStubReturn((Boolean) value);
+    } else if (PropertyBooleanList.class.equals(clazz)) {
+      expect(property.getBooleanListValue()).andStubReturn((BooleanList) value);
+    } else if (PropertyDateTime.class.equals(clazz)) {
+      expect(property.getDateTimeValue()).andStubReturn((Date) value);
+    } else if (PropertyDateTimeList.class.equals(clazz)) {
+      expect(property.getDateTimeListValue())
+          .andStubReturn((DateTimeList) value);
+    } else if (PropertyFloat64.class.equals(clazz)) {
+      expect(property.getFloat64Value()).andStubReturn((Double) value);
+    } else if (PropertyFloat64List.class.equals(clazz)) {
+      expect(property.getFloat64ListValue()).andStubReturn((Float64List) value);
+    } else if (PropertyId.class.equals(clazz)) {
+      expect(property.getIdValue()).andStubReturn((Id) value);
+    } else if (PropertyIdList.class.equals(clazz)) {
+      expect(property.getIdListValue()).andStubReturn((IdList) value);
+    } else if (PropertyInteger32.class.equals(clazz)) {
+      expect(property.getInteger32Value()).andStubReturn((Integer) value);
+    } else if (PropertyInteger32List.class.equals(clazz)) {
+      expect(property.getInteger32ListValue())
+          .andStubReturn((Integer32List) value);
+    } else if (PropertyString.class.equals(clazz)) {
+      expect(property.getStringValue()).andStubReturn((String) value);
+    } else if (PropertyStringList.class.equals(clazz)) {
+      expect(property.getStringListValue()).andStubReturn((StringList) value);
+    } // Intentionally allow unsupported PropertyTypes to be mocked.
+    replay(property);
+    return property;
   }
 
   /**
