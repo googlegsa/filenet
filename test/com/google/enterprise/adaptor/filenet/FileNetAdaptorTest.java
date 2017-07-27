@@ -18,6 +18,8 @@ import static com.google.enterprise.adaptor.DocIdPusher.Record;
 import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.percentEscape;
+import static com.google.enterprise.adaptor.filenet.ObjectMocks.mockUser;
+import static com.google.enterprise.adaptor.filenet.Permissions.AUTHENTICATED_USERS;
 import static org.hamcrest.CoreMatchers.isA;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -26,11 +28,15 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
+import com.google.enterprise.adaptor.GroupPrincipal;
 import com.google.enterprise.adaptor.InvalidConfigurationException;
+import com.google.enterprise.adaptor.UserPrincipal;
+import com.google.enterprise.adaptor.filenet.FileNetProxies.MockObjectStore;
 import com.google.enterprise.adaptor.testing.RecordingDocIdPusher;
 import com.google.enterprise.adaptor.testing.RecordingResponse;
 
@@ -67,6 +73,7 @@ public class FileNetAdaptorTest {
 
   @Before
   public void setUp() throws Exception {
+    FileNetProxies.createTables();
     adaptor = new FileNetAdaptor();
     context = ProxyAdaptorContext.getInstance();
     config = context.getConfig();
@@ -81,6 +88,7 @@ public class FileNetAdaptorTest {
 
   @After
   public void tearDown() throws Exception {
+    JdbcFixture.dropAllObjects();
     TimeZone.setDefault(defaultTimeZone);
   }
 
@@ -559,6 +567,47 @@ public class FileNetAdaptorTest {
         new Record.Builder(newDocId(new Checkpoint("type=document")))
             .setCrawlImmediately(true).build()),
         pusher.getRecords());
+  }
+
+  private void createUsers(int count) {
+    MockObjectStore objectStore =
+        (MockObjectStore) (adaptor.getConfigOptions().getObjectStore(null));
+    String idFormat = "{BBBBBBBB-0000-0000-0000-%012d}";
+    for (int i = 1; i <= count; i++) {
+      mockUser(objectStore, String.format(idFormat, i), "user" + i);
+    }
+  }
+
+  @Test
+  public void testGetDocIds_authenticatedUsers() throws Exception {
+    RecordingDocIdPusher pusher = getContextPusher();
+    config.overrideKey("feed.maxUrls", "3");
+    adaptor.init(context);
+
+    createUsers(5);
+    adaptor.getDocIds(pusher);
+
+    ConfigOptions options = adaptor.getConfigOptions();
+    assertEquals(ImmutableMap.of(
+        new GroupPrincipal(AUTHENTICATED_USERS, options.getLocalNamespace()),
+        ImmutableList.of(
+            new UserPrincipal("user1", options.getGlobalNamespace()),
+            new UserPrincipal("user2", options.getGlobalNamespace()),
+            new UserPrincipal("user3", options.getGlobalNamespace()),
+            new UserPrincipal("user4", options.getGlobalNamespace()),
+            new UserPrincipal("user5", options.getGlobalNamespace()))),
+        pusher.getGroupDefinitions());
+  }
+
+  @Test
+  public void testGetDocIds_markAllDocsPublic() throws Exception {
+    RecordingDocIdPusher pusher = getContextPusher();
+    config.overrideKey("adaptor.markAllDocsAsPublic", "true");
+    adaptor.init(context);
+
+    createUsers(5);
+    adaptor.getDocIds(pusher);
+    assertEquals(ImmutableMap.of(), pusher.getGroupDefinitions());
   }
 
   @Test

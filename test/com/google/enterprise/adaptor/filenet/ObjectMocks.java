@@ -60,6 +60,7 @@ import com.filenet.api.property.PropertyString;
 import com.filenet.api.property.PropertyStringList;
 import com.filenet.api.security.ActiveMarking;
 import com.filenet.api.security.Marking;
+import com.filenet.api.security.User;
 import com.filenet.api.util.Id;
 
 import java.io.ByteArrayInputStream;
@@ -186,7 +187,7 @@ class ObjectMocks {
     expect(doc.get_ActiveMarkings()).andStubReturn(activeMarkings);
     expect(doc.getProperties()).andStubReturn(properties);
     replay(vs, properties, doc);
-    objectStore.addObject(doc);
+    objectStore.addDocument(doc);
   }
 
   public static void mockDocumentNotFound(MockObjectStore objectStore,
@@ -197,7 +198,7 @@ class ObjectMocks {
         new EngineRuntimeException(ExceptionCode.E_OBJECT_NOT_FOUND));
     expect(doc.get_Id()).andStubReturn(newId(guid));
     replay(doc);
-    objectStore.addObject(doc);
+    objectStore.addDocument(doc);
   }
 
   /**
@@ -290,6 +291,18 @@ class ObjectMocks {
     expect(activeMarking.get_PropertyDisplayName()).andStubReturn(name);
     replay(marking, activeMarking);
     return activeMarking;
+  }
+
+  /**
+   * Creates a User with the specified Id and Name.
+   */
+  public static void mockUser(MockObjectStore objectStore, String id,
+      String name) {
+    User user = createMock(User.class);
+    expect(user.get_Id()).andStubReturn(id);
+    expect(user.get_Name()).andStubReturn(name);
+    replay(user);
+    objectStore.addUser(user);
   }
 
   public static DeletionEvent mockDeletionEvent(MockObjectStore objectStore,

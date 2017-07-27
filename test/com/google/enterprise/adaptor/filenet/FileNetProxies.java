@@ -39,6 +39,7 @@ import com.filenet.api.core.ObjectStore;
 import com.filenet.api.exception.EngineRuntimeException;
 import com.filenet.api.exception.ExceptionCode;
 import com.filenet.api.property.PropertyFilter;
+import com.filenet.api.security.User;
 import com.filenet.api.util.Id;
 
 import java.io.ByteArrayInputStream;
@@ -140,17 +141,21 @@ class FileNetProxies implements ObjectFactory {
   }
 
   interface MockObjectStore extends ObjectStore {
-    /** Adds an object to the store. */
-    void addObject(Document object);
+    /** Adds a Document object to the store. */
+    void addDocument(Document object);
+
+    /** Adds a User object to the store. */
+    void addUser(User object);
   }
 
   static class MockObjectStoreImpl {
-    private final LinkedHashMap<Id, Document> objects = new LinkedHashMap<>();
+    private final LinkedHashMap<Id, IndependentObject> objects =
+        new LinkedHashMap<>();
 
     private MockObjectStoreImpl() { }
 
-    /** Adds an object to the store. */
-    public void addObject(Document object) {
+    /** Adds a Document object to the store. */
+    public void addDocument(Document object) {
       objects.put(object.get_Id(), object);
 
       // Insert the columns used by the various queries into H2.
@@ -178,11 +183,28 @@ class FileNetProxies implements ObjectFactory {
       }
     }
 
+    /** Adds a User object to the store. */
+    public void addUser(User user) {
+      objects.put(new Id(user.get_Id()), user);
+
+      // Insert the columns used by the various queries into H2.
+      String sql = "insert into User(Id, Name) values (?, ?)";
+      try (Connection connection = JdbcFixture.getConnection();
+          PreparedStatement stmt = connection.prepareStatement(sql)) {
+        stmt.setString(1, user.get_Id().toString());
+        stmt.setString(2, user.get_Name());
+        stmt.executeUpdate();
+      } catch (SQLException e) {
+        throw new AssertionError(e);
+      }
+    }
+
     /* @see ObjectStore#fetchObject */
     public IndependentObject fetchObject(String type, Id id,
         PropertyFilter filter) {
-      if (ClassNames.DOCUMENT.equalsIgnoreCase(type)) {
-        Document obj = objects.get(id);
+      if (ClassNames.DOCUMENT.equalsIgnoreCase(type)
+          || ClassNames.USER.equalsIgnoreCase(type)) {
+        IndependentObject obj = objects.get(id);
         if (obj == null) {
           throw new EngineRuntimeException(ExceptionCode.E_OBJECT_NOT_FOUND);
         } else {
@@ -211,8 +233,14 @@ class FileNetProxies implements ObjectFactory {
       + PropertyNames.VERSION_SERIES + " varchar, "
       + PropertyNames.VERSION_STATUS + " int)";
 
+  private static final String CREATE_TABLE_USER =
+      "create table User("
+      + PropertyNames.ID + " varchar unique, "
+      + PropertyNames.NAME + " varchar)";
+
   static void createTables() throws SQLException {
     JdbcFixture.executeUpdate(CREATE_TABLE_DOCUMENT);
+    JdbcFixture.executeUpdate(CREATE_TABLE_USER);
   }
 
   /**
@@ -237,6 +265,7 @@ class FileNetProxies implements ObjectFactory {
           .replace(GuidConstants.Class_Folder.toString(), "Folder")
           .replace(
               GuidConstants.Class_SecurityPolicy.toString(), "SecurityPolicy")
+          .replace(GuidConstants.Class_User.toString(), "User")
           .replaceAll("([-:0-9]{10}T[-:\\.0-9]{18})", "'$1'")
           .replaceAll("(?i)OBJECT\\((\\{[-0-9A-F]{36}\\})\\)", "'$1'");
 

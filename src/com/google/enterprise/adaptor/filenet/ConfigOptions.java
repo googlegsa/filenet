@@ -56,6 +56,7 @@ class ConfigOptions {
   private final Set<String> excludedMetadata;
   private final ThreadLocal<SimpleDateFormat> metadataDateFormat;
   private final String globalNamespace;
+  private final String localNamespace;
   private final int maxFeedUrls;
 
   public ConfigOptions(AdaptorContext context)
@@ -124,6 +125,14 @@ class ConfigOptions {
 
     globalNamespace = config.getValue("adaptor.namespace");
     logger.log(Level.CONFIG, "adaptor.namespace: {0}", globalNamespace);
+
+    URI uri = URI.create(contentEngineUrl);
+    String tempNamespace = uri.getHost().replace('.', '-');
+    if (uri.getPort() != -1) {
+      tempNamespace += "_" + uri.getPort();
+    }
+    localNamespace = tempNamespace;
+    logger.log(Level.CONFIG, "local namespace: {0}", localNamespace);
 
     // TODO(bmj): validate where clauses
     additionalWhereClause = config.getValue("filenet.additionalWhereClause");
@@ -213,6 +222,10 @@ class ConfigOptions {
 
   public String getGlobalNamespace() {
     return globalNamespace;
+  }
+
+  public String getLocalNamespace() {
+    return localNamespace;
   }
 
   public String getAdditionalWhereClause() {
