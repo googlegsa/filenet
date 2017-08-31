@@ -75,7 +75,7 @@ class TestObjectFactory {
 
   // TODO(tdnguyen): Combine this method with similar methods in
   // PermissionsTest.
-  private static AccessPermission newPermission(String granteeName,
+  public static AccessPermission newPermission(String granteeName,
       SecurityPrincipalType principalType, AccessType accessType,
       int accessMask, int inheritableDepth, PermissionSource permSrc) {
     AccessPermissionMock perm = new AccessPermissionMock(permSrc);
