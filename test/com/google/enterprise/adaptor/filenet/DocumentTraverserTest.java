@@ -593,7 +593,7 @@ public class DocumentTraverserTest {
   @Test
   public void testGetDocContent_customAuthenticatedUsers() throws Exception {
     options = TestObjectFactory.newConfigOptions(
-        ImmutableMap.<String, String>of(
+        ImmutableMap.of(
             "filenet.authenticatedUsersGroup",
             "cn=AuthenticatedUsers,ou=users,dc=example,dc=com"));
 
@@ -618,9 +618,8 @@ public class DocumentTraverserTest {
     traverser.getDocContent(new Id(id), request, response);
 
     Acl acl = response.getAcl();
-    assertEquals(acl.getPermitGroups().toString(),
-        ImmutableSet.<GroupPrincipal>of(new GroupPrincipal(authenticatedUsers,
-            options.getGlobalNamespace())),
+    assertEquals(ImmutableSet.of(
+        new GroupPrincipal(authenticatedUsers, options.getGlobalNamespace())),
         acl.getPermitGroups());
     assertTrue(acl.getPermitUsers().toString(),
         acl.getPermitUsers().isEmpty());
