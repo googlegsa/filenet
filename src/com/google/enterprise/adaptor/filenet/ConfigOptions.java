@@ -26,6 +26,7 @@ import com.google.enterprise.adaptor.SensitiveValueDecoder;
 import com.filenet.api.core.ObjectStore;
 import com.filenet.api.util.Id;
 
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
@@ -88,12 +89,16 @@ class ConfigOptions {
           "filenet.objectFactory may not be empty");
     }
     try {
-      objectFactory =
-          (ObjectFactory) Class.forName(objectFactoryName).newInstance();
+      objectFactory = (ObjectFactory) Class.forName(objectFactoryName)
+          .getDeclaredConstructor().newInstance();
     } catch (ClassNotFoundException | InstantiationException
-             | IllegalAccessException e) {
+             | IllegalAccessException | NoSuchMethodException e) {
       throw new InvalidConfigurationException(
           "Unable to instantiate object factory: " + objectFactoryName, e);
+    } catch (InvocationTargetException e) {
+      throw new InvalidConfigurationException(
+          "Unable to instantiate object factory: " + objectFactoryName,
+          e.getCause());
     }
     logger.log(Level.CONFIG, "filenet.objectFactory: {0}", objectFactoryName);
 
