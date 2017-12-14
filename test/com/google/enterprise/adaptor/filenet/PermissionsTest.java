@@ -83,15 +83,10 @@ public class PermissionsTest {
 
   @SuppressWarnings({"unchecked"})
   private void addAce(PermissionSource permSrc,
-      SecurityPrincipalType secPrincipalType, AccessType accessType,
-      int accessMask, int inheritableDepth, String ace) {
-    AccessPermissionMock perm = new AccessPermissionMock(permSrc);
-    perm.set_GranteeType(secPrincipalType);
-    perm.set_AccessType(accessType);
-    perm.set_AccessMask(accessMask);
-    perm.set_InheritableDepth(inheritableDepth);
-    perm.set_GranteeName(ace);
-    perms.add(perm);
+      SecurityPrincipalType principalType, AccessType accessType,
+      int accessMask, int inheritableDepth, String granteeName) {
+    perms.add(TestObjectFactory.newPermission(granteeName, principalType,
+        accessType, accessMask, inheritableDepth, permSrc));
   }
 
   private void addAces(int numOfAces, AccessType accessType,

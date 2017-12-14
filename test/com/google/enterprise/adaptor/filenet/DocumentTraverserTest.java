@@ -609,7 +609,7 @@ public class DocumentTraverserTest {
         TestObjectFactory.newPermissionList(ImmutableList.of(
             TestObjectFactory.newPermission(Permissions.AUTHENTICATED_USERS,
                 SecurityPrincipalType.GROUP, AccessType.ALLOW,
-                (AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT),
+                Permissions.VIEW_ACCESS_RIGHTS,
                 0, PermissionSource.SOURCE_DIRECT))));
 
     DocumentTraverser traverser = new DocumentTraverser(options);
