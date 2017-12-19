@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.enterprise.adaptor.Acl;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher.Record;
+import com.google.enterprise.adaptor.GroupPrincipal;
 import com.google.enterprise.adaptor.Metadata;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.filenet.EngineCollectionMocks.AccessPermissionListMock;
@@ -61,8 +62,10 @@ import com.google.enterprise.adaptor.testing.RecordingResponse;
 
 import com.filenet.api.constants.AccessLevel;
 import com.filenet.api.constants.AccessRight;
+import com.filenet.api.constants.AccessType;
 import com.filenet.api.constants.PermissionSource;
 import com.filenet.api.constants.PropertyNames;
+import com.filenet.api.constants.SecurityPrincipalType;
 import com.filenet.api.property.FilterElement;
 import com.filenet.api.property.Property;
 import com.filenet.api.property.PropertyBinaryList;
@@ -582,6 +585,49 @@ public class DocumentTraverserTest {
         response.getMetadata());
   }
 
+  @Test
+  public void testGetDocContent_defaultAuthenticatedUsers() throws Exception {
+    testGetDocContent_authenticatedUsers("NT AUTHORITY\\Authenticated Users");
+  }
+
+  @Test
+  public void testGetDocContent_customAuthenticatedUsers() throws Exception {
+    options = TestObjectFactory.newConfigOptions(
+        ImmutableMap.of(
+            "filenet.authenticatedUsersGroup",
+            "cn=AuthenticatedUsers,ou=users,dc=example,dc=com"));
+
+    testGetDocContent_authenticatedUsers("AuthenticatedUsers@example.com");
+  }
+
+  private void testGetDocContent_authenticatedUsers(String authenticatedUsers)
+      throws Exception {
+    String id = "{AAAAAAAA-0000-0000-0000-000000000000}";
+    DocId docId = newDocId(new Id(id));
+    MockObjectStore os = getObjectStore();
+    mockDocument(os, id, DOCUMENT_TIMESTAMP, RELEASED, 42d, "text/plain",
+        TestObjectFactory.newPermissionList(ImmutableList.of(
+            TestObjectFactory.newPermission(Permissions.AUTHENTICATED_USERS,
+                SecurityPrincipalType.GROUP, AccessType.ALLOW,
+                Permissions.VIEW_ACCESS_RIGHTS,
+                0, PermissionSource.SOURCE_DIRECT))));
+
+    DocumentTraverser traverser = new DocumentTraverser(options);
+    Request request = new MockRequest(docId);
+    RecordingResponse response = new RecordingResponse();
+    traverser.getDocContent(new Id(id), request, response);
+
+    Acl acl = response.getAcl();
+    assertEquals(ImmutableSet.of(
+        new GroupPrincipal(authenticatedUsers, options.getGlobalNamespace())),
+        acl.getPermitGroups());
+    assertTrue(acl.getPermitUsers().toString(),
+        acl.getPermitUsers().isEmpty());
+    assertTrue(acl.getDenyGroups().toString(),
+        acl.getDenyGroups().isEmpty());
+    assertTrue(acl.getDenyUsers().toString(),
+        acl.getDenyUsers().isEmpty());
+  }
 
   @Test
   public void testGetDocContent_markAllDocsPublic() throws Exception {

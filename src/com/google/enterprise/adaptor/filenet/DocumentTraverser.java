@@ -63,7 +63,6 @@ import com.filenet.api.util.Id;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URI;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -510,6 +509,9 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       String namespace) {
     ArrayList<GroupPrincipal> list = new ArrayList<>();
     for (String name : names) {
+      if (name.equals(Permissions.AUTHENTICATED_USERS)) {
+        name = options.getAuthenticatedUsersGroup();
+      }
       list.add(new GroupPrincipal(FileUtil.convertDn(name), namespace));
     }
     return list;

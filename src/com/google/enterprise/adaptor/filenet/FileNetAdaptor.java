@@ -116,6 +116,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
         Joiner.on(',').join(excludedMetadata));
     config.addKey("filenet.includedMetadata", "");
     config.addKey("filenet.metadataDateFormat", "yyyy-MM-dd");
+    config.addKey("filenet.authenticatedUsersGroup",
+        "NT AUTHORITY\\Authenticated Users");
     config.addKey("adaptor.namespace", DEFAULT_NAMESPACE);
   }
 

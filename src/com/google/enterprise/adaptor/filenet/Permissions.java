@@ -101,8 +101,6 @@ class Permissions {
     boolean authorizeByConstraints =
         (VIEW_ACCESS_RIGHTS & ~constraintMask) == VIEW_ACCESS_RIGHTS;
     if (authorizeByConstraints) {
-      // TODO(bmj): AUTHENTICATED_USERS should really be feed as a local
-      // group, not a global group.
       allowGroups.put(PermissionSource.MARKING, AUTHENTICATED_USERS);
     } else {
       // If we added a denyGroups of AUTHENTICATED_USERS, the ACL would

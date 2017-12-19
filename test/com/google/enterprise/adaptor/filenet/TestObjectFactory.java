@@ -67,15 +67,13 @@ class TestObjectFactory {
     List<AccessPermission> aces = new ArrayList<>();
     for (PermissionSource source : sources) {
       aces.addAll(generatePermissions(
-        1, 1, 1, 1, (AccessRight.READ_AS_INT | AccessRight.VIEW_CONTENT_AS_INT),
+        1, 1, 1, 1, Permissions.VIEW_ACCESS_RIGHTS,
         0, source));
     }
     return newPermissionList(aces);
   }
 
-  // TODO(tdnguyen): Combine this method with similar methods in
-  // PermissionsTest.
-  private static AccessPermission newPermission(String granteeName,
+  public static AccessPermission newPermission(String granteeName,
       SecurityPrincipalType principalType, AccessType accessType,
       int accessMask, int inheritableDepth, PermissionSource permSrc) {
     AccessPermissionMock perm = new AccessPermissionMock(permSrc);

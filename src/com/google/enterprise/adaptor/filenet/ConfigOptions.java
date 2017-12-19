@@ -56,6 +56,7 @@ class ConfigOptions {
   private final Set<String> includedMetadata;
   private final Set<String> excludedMetadata;
   private final ThreadLocal<SimpleDateFormat> metadataDateFormat;
+  private final String authenticatedUsersGroup;
   private final String globalNamespace;
   private final int maxFeedUrls;
 
@@ -126,6 +127,11 @@ class ConfigOptions {
         Boolean.parseBoolean(config.getValue("adaptor.markAllDocsAsPublic"));
     logger.log(Level.CONFIG, "adaptor.markAllDocsAsPublic: {0}",
         markAllDocsAsPublic);
+
+    authenticatedUsersGroup =
+        config.getValue("filenet.authenticatedUsersGroup");
+    logger.log(Level.CONFIG, "filenet.authenticatedUsersGroup: {0}",
+        authenticatedUsersGroup);
 
     globalNamespace = config.getValue("adaptor.namespace");
     logger.log(Level.CONFIG, "adaptor.namespace: {0}", globalNamespace);
@@ -214,6 +220,10 @@ class ConfigOptions {
 
   public boolean markAllDocsAsPublic() {
     return markAllDocsAsPublic;
+  }
+
+  public String getAuthenticatedUsersGroup() {
+    return authenticatedUsersGroup;
   }
 
   public String getGlobalNamespace() {
