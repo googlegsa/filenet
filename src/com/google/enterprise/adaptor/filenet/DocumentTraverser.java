@@ -98,52 +98,52 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   public Checkpoint getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
       throws IOException, InterruptedException {
     try (AutoConnection connection = options.getConnection()) {
-        ObjectStore objectStore = options.getObjectStore(connection);
-        logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
+      ObjectStore objectStore = options.getObjectStore(connection);
+      logger.log(Level.FINE, "Target ObjectStore is: {0}", objectStore);
 
-        ObjectFactory objectFactory = options.getObjectFactory();
-        SearchWrapper search = objectFactory.getSearch(objectStore);
+      ObjectFactory objectFactory = options.getObjectFactory();
+      SearchWrapper search = objectFactory.getSearch(objectStore);
 
-        String query = buildQueryString(checkpoint);
-        logger.log(Level.FINE, "Query for added or updated documents: {0}",
-            query);
-        IndependentObjectSet objectSet = search.fetchObjects(query,
-            maxRecords, getDocIdsPropertyFilter(), SearchWrapper.CONTINUABLE);
-        logger.fine(objectSet.isEmpty()
-            ? "Found no documents to add or update"
-            : "Found documents to add or update");
+      String query = buildQueryString(checkpoint);
+      logger.log(Level.FINE, "Query for added or updated documents: {0}",
+          query);
+      IndependentObjectSet objectSet = search.fetchObjects(query,
+          maxRecords, getDocIdsPropertyFilter(), SearchWrapper.CONTINUABLE);
+      logger.fine(objectSet.isEmpty()
+          ? "Found no documents to add or update"
+          : "Found documents to add or update");
 
-        ArrayList<DocIdPusher.Record> records = new ArrayList<>();
-        Date timestamp = null;
-        Id guid = null;
-        boolean crawlImmediately = checkpoint.type.equals("incremental");
-        Iterator<?> objects = objectSet.iterator();
-        while (objects.hasNext()) {
-          Document object = (Document) objects.next();
-          timestamp = object.get_DateLastModified();
-          guid = object.get_Id();
-          Id vsId = object.get_VersionSeries().get_Id();
-          logger.log(Level.FINER, "Document ID: {0}", guid);
-          logger.log(Level.FINER, "VersionSeries ID: {0}", vsId);
-          records.add(new DocIdPusher.Record.Builder(newDocId(vsId))
-              .setCrawlImmediately(crawlImmediately).build());
-        }
-        // TODO(jlacey): if (records.size() == maxRecords)
-        Checkpoint newCheckpoint;
-        if (timestamp != null) {
-          newCheckpoint = new Checkpoint(checkpoint.type, timestamp, guid);
-          records.add(
-              new DocIdPusher.Record.Builder(newDocId(newCheckpoint))
-              .setCrawlImmediately(true).build());
-        } else {
-          newCheckpoint = checkpoint;
-        }
+      ArrayList<DocIdPusher.Record> records = new ArrayList<>();
+      Date timestamp = null;
+      Id guid = null;
+      boolean crawlImmediately = checkpoint.type.equals("incremental");
+      Iterator<?> objects = objectSet.iterator();
+      while (objects.hasNext()) {
+        Document object = (Document) objects.next();
+        timestamp = object.get_DateLastModified();
+        guid = object.get_Id();
+        Id vsId = object.get_VersionSeries().get_Id();
+        logger.log(Level.FINER, "Document ID: {0}", guid);
+        logger.log(Level.FINER, "VersionSeries ID: {0}", vsId);
+        records.add(new DocIdPusher.Record.Builder(newDocId(vsId))
+            .setCrawlImmediately(crawlImmediately).build());
+      }
+      // TODO(jlacey): if (records.size() == maxRecords)
+      Checkpoint newCheckpoint;
+      if (timestamp != null) {
+        newCheckpoint = new Checkpoint(checkpoint.type, timestamp, guid);
         records.add(
-            new DocIdPusher.Record.Builder(newDocId(checkpoint))
-            .setDeleteFromIndex(true).build());
-        pusher.pushRecords(records);
-        return newCheckpoint;
-      } catch (EngineRuntimeException e) {
+            new DocIdPusher.Record.Builder(newDocId(newCheckpoint))
+            .setCrawlImmediately(true).build());
+      } else {
+        newCheckpoint = checkpoint;
+      }
+      records.add(
+          new DocIdPusher.Record.Builder(newDocId(checkpoint))
+          .setDeleteFromIndex(true).build());
+      pusher.pushRecords(records);
+      return newCheckpoint;
+    } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }
   }

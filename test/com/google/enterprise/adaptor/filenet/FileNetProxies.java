@@ -102,30 +102,6 @@ class FileNetProxies implements ObjectFactory {
       }
     }
 
-    // TODO(bmj): remove me DEBUGGING
-    public void getModifiedDocIds(DocIdPusher pusher)
-        throws IOException, InterruptedException {
-      /*
-      String guid = incrementalCheckpoint.guid;
-      int counter = Integer.parseInt(
-          guid.substring(guid.lastIndexOf('-') + 1, guid.length() - 1));
-      int maxDocIds = maxFeedUrls;
-      List<Record> records = new ArrayList<>(maxDocIds);
-      // Feed two batches per call.
-      for (int j = 0; j < 2; j++) {
-        for (int i = 0; i < maxDocIds; i++) {
-          DocId docid = newDocId(new Id(String.format(idFormat, ++counter)));
-          records.add(
-              new Record.Builder(docid).setCrawlImmediately(true).build());
-        }
-        pusher.pushRecords(records);
-        records.clear();
-      }
-      incrementalCheckpoint = new Checkpoint(incrementalCheckpoint.type,
-          new Date(), new Id(String.format(idFormat, counter)));
-      */
-    }
-
     @Override
     public void getDocContent(Id id, Request request, Response response)
         throws IOException {
