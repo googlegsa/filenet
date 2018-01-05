@@ -86,6 +86,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
 
   private final ConfigOptions options;
   private final int maxRecords;
+  private Checkpoint incrementalCheckpoint;
 
   public DocumentTraverser(ConfigOptions options) {
     this.options = options;
@@ -94,7 +95,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
   }
 
   @Override
-  public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
+  public Checkpoint getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
       throws IOException, InterruptedException {
     try (AutoConnection connection = options.getConnection()) {
       ObjectStore objectStore = options.getObjectStore(connection);
@@ -115,6 +116,7 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
       ArrayList<DocIdPusher.Record> records = new ArrayList<>();
       Date timestamp = null;
       Id guid = null;
+      boolean crawlImmediately = checkpoint.type.equals("incremental");
       Iterator<?> objects = objectSet.iterator();
       while (objects.hasNext()) {
         Document object = (Document) objects.next();
@@ -123,19 +125,24 @@ class DocumentTraverser implements FileNetAdaptor.Traverser {
         Id vsId = object.get_VersionSeries().get_Id();
         logger.log(Level.FINER, "Document ID: {0}", guid);
         logger.log(Level.FINER, "VersionSeries ID: {0}", vsId);
-        records.add(new DocIdPusher.Record.Builder(newDocId(vsId)).build());
+        records.add(new DocIdPusher.Record.Builder(newDocId(vsId))
+            .setCrawlImmediately(crawlImmediately).build());
       }
       // TODO(jlacey): if (records.size() == maxRecords)
+      Checkpoint newCheckpoint;
       if (timestamp != null) {
+        newCheckpoint = new Checkpoint(checkpoint.type, timestamp, guid);
         records.add(
-            new DocIdPusher.Record.Builder(
-                newDocId(new Checkpoint(checkpoint.type, timestamp, guid)))
+            new DocIdPusher.Record.Builder(newDocId(newCheckpoint))
             .setCrawlImmediately(true).build());
+      } else {
+        newCheckpoint = checkpoint;
       }
       records.add(
           new DocIdPusher.Record.Builder(newDocId(checkpoint))
           .setDeleteFromIndex(true).build());
       pusher.pushRecords(records);
+      return newCheckpoint;
     } catch (EngineRuntimeException e) {
       throw new IOException(e);
     }

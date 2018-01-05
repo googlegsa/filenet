@@ -71,7 +71,7 @@ class FileNetProxies implements ObjectFactory {
     }
 
     @Override
-    public void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
+    public Checkpoint getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
         throws IOException, InterruptedException {
       int counter;
       if (checkpoint.isEmpty()) {
@@ -81,11 +81,13 @@ class FileNetProxies implements ObjectFactory {
         counter = Integer.parseInt(
             guid.substring(guid.lastIndexOf('-') + 1, guid.length() - 1));
       }
+      boolean crawlImmediately = checkpoint.type.equals("incremental");
       int maxDocIds = maxFeedUrls - 1;
       List<Record> records = new ArrayList<>(maxDocIds);
       for (int i = 0; i < maxDocIds && ++counter < 10000; i++) {
         DocId docid = newDocId(new Id(String.format(idFormat, counter)));
-        records.add(new Record.Builder(docid).build());
+        records.add(new Record.Builder(docid)
+            .setCrawlImmediately(crawlImmediately).build());
       }
       if (!records.isEmpty()) {
         Checkpoint newCheckpoint = new Checkpoint(checkpoint.type,
@@ -94,6 +96,9 @@ class FileNetProxies implements ObjectFactory {
             .setCrawlImmediately(true)
             .build());
         pusher.pushRecords(records);
+        return newCheckpoint;
+      } else {
+        return checkpoint;
       }
     }
 

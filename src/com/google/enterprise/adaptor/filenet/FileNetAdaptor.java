@@ -28,6 +28,7 @@ import com.google.enterprise.adaptor.AdaptorContext;
 import com.google.enterprise.adaptor.Config;
 import com.google.enterprise.adaptor.DocId;
 import com.google.enterprise.adaptor.DocIdPusher;
+import com.google.enterprise.adaptor.PollingIncrementalLister;
 import com.google.enterprise.adaptor.Request;
 import com.google.enterprise.adaptor.Response;
 import com.google.enterprise.adaptor.StartupException;
@@ -42,13 +43,16 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Gets FileNet repository content into a Google Search Appliance. */
-public class FileNetAdaptor extends AbstractAdaptor {
+public class FileNetAdaptor extends AbstractAdaptor
+    implements PollingIncrementalLister {
   private static final Logger logger =
       Logger.getLogger(FileNetAdaptor.class.getName());
 
@@ -57,6 +61,8 @@ public class FileNetAdaptor extends AbstractAdaptor {
   private ConfigOptions configOptions;
 
   private Traverser documentTraverser;
+  private AtomicReference<Checkpoint> incrementalCheckpoint =
+      new AtomicReference<>();
 
   public static void main(String[] args) {
     AbstractAdaptor.main(new FileNetAdaptor(), args);
@@ -135,6 +141,12 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
     documentTraverser =
         configOptions.getObjectFactory().getTraverser(configOptions);
+
+    Date yesterday = new Date(new Date().getTime() - TimeUnit.DAYS.toMillis(1));
+    incrementalCheckpoint.set(
+        new Checkpoint("incremental", yesterday , Id.ZERO_ID));
+
+    context.setPollingIncrementalLister(this);
   }
 
   @VisibleForTesting
@@ -159,6 +171,14 @@ public class FileNetAdaptor extends AbstractAdaptor {
   }
 
   @Override
+  public void getModifiedDocIds(DocIdPusher pusher) throws IOException,
+      InterruptedException {
+    pusher.pushRecords(Arrays.asList(
+        new Record.Builder(newDocId(incrementalCheckpoint.get()))
+            .setCrawlImmediately(true).build()));
+  }
+
+  @Override
   public void getDocContent(Request req, Response resp) throws IOException,
       InterruptedException {
     DocId id = req.getDocId();
@@ -174,6 +194,16 @@ public class FileNetAdaptor extends AbstractAdaptor {
         switch (checkpoint.type) {
           case "document":
             documentTraverser.getDocIds(checkpoint, context.getDocIdPusher());
+            resp.setCrawlOnce(true);
+            resp.setNoIndex(true);
+            resp.setSecure(true); // Just to be paranoid.
+            resp.setContentType("text/plain");
+            resp.getOutputStream().write(" ".getBytes(UTF_8));
+            break;
+          case "incremental":
+            incrementalCheckpoint.set(
+                documentTraverser.getDocIds(checkpoint,
+                    context.getDocIdPusher()));
             resp.setCrawlOnce(true);
             resp.setNoIndex(true);
             resp.setSecure(true); // Just to be paranoid.
@@ -205,7 +235,7 @@ public class FileNetAdaptor extends AbstractAdaptor {
   }
 
   static interface Traverser {
-    void getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
+    Checkpoint getDocIds(Checkpoint checkpoint, DocIdPusher pusher)
         throws IOException, InterruptedException;
 
     void getDocContent(Id id, Request request, Response response)
@@ -226,7 +256,9 @@ public class FileNetAdaptor extends AbstractAdaptor {
 
     private static final MessageFormat SHORT_FORMAT = new MessageFormat(
         "type={0}", US);
-    private static final MessageFormat FULL_FORMAT = new MessageFormat(
+
+    @VisibleForTesting
+    static final MessageFormat FULL_FORMAT = new MessageFormat(
         "type={0};timestamp={1};guid={2}", US);
 
     public final String type;
