@@ -19,10 +19,12 @@ import static com.google.enterprise.adaptor.Principal.DEFAULT_NAMESPACE;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.Checkpoint;
 import static com.google.enterprise.adaptor.filenet.FileNetAdaptor.percentEscape;
 import static org.hamcrest.CoreMatchers.isA;
+import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
@@ -52,6 +54,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 import javax.security.auth.Subject;
 
 /** Unit tests for FileNetAdaptor */
@@ -628,11 +631,7 @@ public class FileNetAdaptorTest {
         actual.subList(0, actual.size() - 1));
 
     // Now check the continuation record.
-    Record continuation = actual.get(actual.size() - 1);
-    String docid = continuation.getDocId().getUniqueId();
-    assertTrue(docid, docid.startsWith("pseudo/"));
-    Checkpoint checkpoint =
-        new Checkpoint(docid.substring(docid.indexOf('/') + 1));
+    Checkpoint checkpoint = getCheckpoint(actual);
     assertEquals("document", checkpoint.type);
     assertEquals("{AAAAAAAA-0000-0000-0000-000000000004}", checkpoint.guid);
   }
@@ -666,11 +665,7 @@ public class FileNetAdaptorTest {
         actual.subList(0, actual.size() - 1));
 
     // Now check the continuation record.
-    Record continuation = actual.get(actual.size() - 1);
-    String docid = continuation.getDocId().getUniqueId();
-    assertTrue(docid, docid.startsWith("pseudo/"));
-    Checkpoint checkpoint =
-        new Checkpoint(docid.substring(docid.indexOf('/') + 1));
+    Checkpoint checkpoint = getCheckpoint(actual);
     assertEquals("document", checkpoint.type);
     assertEquals("{AAAAAAAA-0000-0000-0000-000000000008}", checkpoint.guid);
   }
@@ -707,44 +702,93 @@ public class FileNetAdaptorTest {
 
   @Test
   public void testGetModifiedDocIds() throws Exception {
-    config.overrideKey("feed.maxUrls", "3");
+    config.overrideKey("feed.maxUrls", "7");
     adaptor.init(context);
+    Checkpoint penultimateCheckpoint = new Checkpoint("incremental",
+        new Date(new Date().getTime() - TimeUnit.DAYS.toMillis(2)), Id.ZERO_ID);
     RecordingDocIdPusher pusher = getContextPusher();
     adaptor.getModifiedDocIds(pusher);
 
-    // Each call to MockTraverser.getModifiedDocIds() sends two batches.
-    assertEquals(ImmutableList.of(
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050001}"))
-            .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050002}"))
-            .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050003}"))
-            .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050004}"))
-            .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050005}"))
-            .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050006}"))
-            .setCrawlImmediately(true).build()),
-        pusher.getRecords());
+    // Should push the initial incremental checkpoint of yesterday and ZERO_ID.
+    List<Record> docList = pusher.getRecords();
+    assertEquals(docList.toString(), 1, docList.size());
 
+    Checkpoint checkpoint = getCheckpoint(docList);
+    assertEquals(checkpoint.toString(), checkpoint.type, "incremental");
+    assertEquals(checkpoint.toString(), checkpoint.guid, Id.ZERO_ID.toString());
+    assertCheckpointAfter(penultimateCheckpoint, checkpoint);
+
+    // Now crawl that checkpoint with the MockTraverser.
+    pusher.reset();
+    RecordingResponse response = new RecordingResponse();
+    adaptor.getDocContent(
+        new MockRequest(newDocId(checkpoint)), response);
+    assertTrue(response.isCrawlOnce());
+    assertTrue(response.isNoIndex());
+    docList = pusher.getRecords();
+    assertEquals(ImmutableList.of(
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000001}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000002}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000003}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000004}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000005}"))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000006}"))
+            .setCrawlImmediately(true).build()),
+        docList.subList(0, docList.size() - 1));
+    assertCheckpointAfter(checkpoint, getCheckpoint(docList));
+
+    // Next call to getModifiedDocIds should push the new incremental checkpoint.
     pusher.reset();
     adaptor.getModifiedDocIds(pusher);
+    docList = pusher.getRecords();
+    assertEquals(docList.toString(), 1, docList.size());
+    Checkpoint newCheckpoint = getCheckpoint(docList);
+    assertEquals(newCheckpoint.toString(), newCheckpoint.type, "incremental");
+    assertEquals(newCheckpoint.toString(), newCheckpoint.guid,
+        "{AAAAAAAA-0000-0000-0000-000000000006}");
+    assertCheckpointAfter(checkpoint, newCheckpoint);
 
-    // Next 2 batches should be based off a preserved checkpoint.
+    // Now crawl the new incremental checkpoint.
+    pusher.reset();
+    response = new RecordingResponse();
+    adaptor.getDocContent(
+        new MockRequest(newDocId(newCheckpoint)), response);
+    assertTrue(response.isCrawlOnce());
+    assertTrue(response.isNoIndex());
+    docList = pusher.getRecords();
     assertEquals(ImmutableList.of(
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050007}"))
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000007}"))
             .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050008}"))
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000008}"))
             .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050009}"))
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000009}"))
             .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050010}"))
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000010}"))
             .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050011}"))
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000011}"))
             .setCrawlImmediately(true).build(),
-        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000050012}"))
+        new Record.Builder(newDocId("{AAAAAAAA-0000-0000-0000-000000000012}"))
             .setCrawlImmediately(true).build()),
-        pusher.getRecords());
+        docList.subList(0, docList.size() - 1));
+    assertCheckpointAfter(newCheckpoint, getCheckpoint(docList));
+  }
+
+  private Checkpoint getCheckpoint(List<Record> docList) {
+    Record record = docList.get(docList.size() - 1);
+    String s = record.getDocId().getUniqueId();
+    assertThat(s, startsWith("pseudo/"));
+    assertTrue("Record is not crawl-immediately: " + record,
+        record.isToBeCrawledImmediately());
+    return new Checkpoint(s.substring(7));
+  }
+
+  private void assertCheckpointAfter(Checkpoint earlier, Checkpoint later) {
+    // The checkpoint timestamps are ISO8601, which should sort lexigraphically.
+    assertTrue(earlier.timestamp.compareTo(later.timestamp) < 0);
   }
 }

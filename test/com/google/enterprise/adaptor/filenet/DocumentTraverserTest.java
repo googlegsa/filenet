@@ -34,7 +34,6 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -125,8 +124,7 @@ public class DocumentTraverserTest {
     traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
     List<Record> docList = pusher.getRecords();
     assertEquals(docList.toString(), 1, docList.size());
-    assertCheckpointEquals(getDeleteCheckpoint(docList),
-        EMPTY_CHECKPOINT.timestamp, EMPTY_CHECKPOINT.guid);
+    assertCheckpointEquals(EMPTY_CHECKPOINT, getDeleteCheckpoint(docList));
   }
 
   @Test
@@ -142,11 +140,11 @@ public class DocumentTraverserTest {
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
     traverser.getDocIds(EMPTY_CHECKPOINT, pusher);
 
-    assertEquals(ImmutableList.of(new Id(id)), getIds(pusher.getRecords()));
-    assertCheckpointEquals(getCheckpoint(pusher.getRecords()),
-            Checkpoint.getQueryTimeString(now), id);
-    assertCheckpointEquals(getDeleteCheckpoint(pusher.getRecords()),
-        EMPTY_CHECKPOINT.timestamp, EMPTY_CHECKPOINT.guid);
+    List<Record> docList = pusher.getRecords();
+    assertEquals(ImmutableList.of(new Id(id)), getIds(docList));
+    Checkpoint expected = new Checkpoint(CHECKPOINT.type, now, new Id(id));
+    assertCheckpointEquals(expected, getCheckpoint(docList));
+    assertCheckpointEquals(EMPTY_CHECKPOINT, getDeleteCheckpoint(docList));
   }
 
   private ImmutableList<Id> getIds(List<Record> docList) {
@@ -162,23 +160,28 @@ public class DocumentTraverserTest {
     return builder.build();
   }
 
-  private String getCheckpoint(List<Record> docList) {
+  private Checkpoint newCheckpoint(String type, String timestamp, String guid) {
+    return new Checkpoint(Checkpoint.FULL_FORMAT.format(
+        new Object[] {type, timestamp, guid}));
+  }
+
+  private Checkpoint getCheckpoint(List<Record> docList) {
     assertTrue(docList.toString(), docList.size() > 2);
     Record record = docList.get(docList.size() - 2);
     String s = record.getDocId().getUniqueId();
     assertThat(s, startsWith("pseudo/"));
     assertTrue("Record is not crawl-immediately: " + record,
         record.isToBeCrawledImmediately());
-    return s.substring(7);
+    return new Checkpoint(s.substring(7));
   }
 
-  private String getDeleteCheckpoint(List<Record> docList) {
+  private Checkpoint getDeleteCheckpoint(List<Record> docList) {
     assertTrue(docList.toString(), docList.size() > 0);
     Record record = docList.get(docList.size() - 1);
     String s = record.getDocId().getUniqueId();
     assertThat(s, startsWith("pseudo/"));
     assertTrue("Record is not a delete: " + record, record.isToBeDeleted());
-    return s.substring(7);
+    return new Checkpoint(s.substring(7));
   }
 
   @Test
@@ -212,8 +215,7 @@ public class DocumentTraverserTest {
     traverser.getDocIds(CHECKPOINT, pusher);
     List<Record> docList = pusher.getRecords();
     assertEquals(docList.toString(), 1, docList.size());
-    assertCheckpointEquals(getDeleteCheckpoint(docList),
-        CHECKPOINT.timestamp, CHECKPOINT.guid);
+    assertCheckpointEquals(CHECKPOINT, getDeleteCheckpoint(docList));
   }
 
   @Test
@@ -236,10 +238,9 @@ public class DocumentTraverserTest {
     assertEquals(docEntries.length, counter);
 
     assertEquals(CHECKPOINT_TIMESTAMP, getQueryTimeString(lastModified));
-    assertCheckpointEquals(getCheckpoint(docList),
-        CHECKPOINT_TIMESTAMP, "{AAAAAAAA-4000-0000-0000-000000000000}");
-    assertCheckpointEquals(getDeleteCheckpoint(docList),
-        EMPTY_CHECKPOINT.timestamp, EMPTY_CHECKPOINT.guid);
+    assertCheckpointEquals(newCheckpoint("document", CHECKPOINT_TIMESTAMP,
+        "{AAAAAAAA-4000-0000-0000-000000000000}"), getCheckpoint(docList));
+    assertCheckpointEquals(EMPTY_CHECKPOINT, getDeleteCheckpoint(docList));
   }
 
   // TODO(jlacey): Once SearchMock uses H2 to get the objects, add a
@@ -264,10 +265,9 @@ public class DocumentTraverserTest {
     assertEquals(docEntries.length, counter);
 
     assertEquals(CHECKPOINT_TIMESTAMP, getQueryTimeString(lastModified));
-    assertCheckpointEquals(getCheckpoint(docList),
-        CHECKPOINT_TIMESTAMP, "{AAAAAAAA-4000-0000-0000-000000000000}");
-    assertCheckpointEquals(getDeleteCheckpoint(docList),
-        CHECKPOINT.timestamp, CHECKPOINT.guid);
+    assertCheckpointEquals(newCheckpoint("document", CHECKPOINT_TIMESTAMP,
+        "{AAAAAAAA-4000-0000-0000-000000000000}"), getCheckpoint(docList));
+    assertCheckpointEquals(CHECKPOINT, getDeleteCheckpoint(docList));
   }
 
   // TODO(jlacey): This is not interesting against the current mocks,
@@ -321,10 +321,9 @@ public class DocumentTraverserTest {
     assertEquals(1, counter);
 
     assertEquals(CHECKPOINT_TIMESTAMP, getQueryTimeString(lastModified));
-    assertCheckpointEquals(getCheckpoint(docList),
-        CHECKPOINT_TIMESTAMP, "{AAAAAAAA-1000-0000-0000-000000000000}");
-    assertCheckpointEquals(getDeleteCheckpoint(docList),
-        CHECKPOINT.timestamp, CHECKPOINT.guid);
+    assertCheckpointEquals(newCheckpoint("document", CHECKPOINT_TIMESTAMP,
+        "{AAAAAAAA-1000-0000-0000-000000000000}"), getCheckpoint(docList));
+    assertCheckpointEquals(CHECKPOINT, getDeleteCheckpoint(docList));
   }
 
   @Test
@@ -336,20 +335,31 @@ public class DocumentTraverserTest {
     DocumentTraverser traverser = new DocumentTraverser(options);
     assertTrue(String.valueOf(docEntries.length), docEntries.length > 1);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
-    traverser.getModifiedDocIds(pusher);
-    assertEquals(0, pusher.getRecords().size());
+
+    Checkpoint checkpoint = new Checkpoint("incremental", new Date(),
+        new Id("AAAAAAAA-4000-0000-0000-000000000000"));
+    assertCheckpointEquals(checkpoint, traverser.getDocIds(checkpoint, pusher));
+    List<Record> docList = pusher.getRecords();
+    assertCheckpointEquals(checkpoint, getDeleteCheckpoint(docList));
+    assertEquals(ImmutableList.of(
+        new Record.Builder(newDocId(checkpoint))
+            .setDeleteFromIndex(true)
+            .build()),
+        pusher.getRecords());
   }
 
   @Test
   public void testGetModifiedDocIds_someNew() throws Exception {
-    options = TestObjectFactory.newConfigOptions(
-        ImmutableMap.<String, String>of("feed.maxUrls", "3"));
+    options = TestObjectFactory.newConfigOptions();
     addDocuments(docEntries);
 
     DocumentTraverser traverser = new DocumentTraverser(options);
     RecordingDocIdPusher pusher = new RecordingDocIdPusher();
+    Checkpoint checkpoint = new Checkpoint("incremental", new Date(),
+        new Id("AAAAAAAA-4000-0000-0000-000000000000"));
 
-    String newDate = dateFormatter.format(new Date());
+    Date now = new Date();
+    String newDate = dateFormatter.format(now);
     String[][] newEntries = {
       { "AAAAAAAA-5000-0000-0000-000000000000", newDate },
       { "AAAAAAAA-6000-0000-0000-000000000000", newDate },
@@ -358,7 +368,9 @@ public class DocumentTraverserTest {
     };
     addDocuments(newEntries);
 
-    traverser.getModifiedDocIds(pusher);
+    Checkpoint newCheckpoint = traverser.getDocIds(checkpoint, pusher);
+    assertCheckpointEquals(new Checkpoint("incremental", now,
+        new Id("{AAAAAAAA-8000-0000-0000-000000000000}")), newCheckpoint);
     assertEquals(ImmutableList.of(
         new Record.Builder(
             newDocId(new Id("{AAAAAAAA-5000-0000-0000-000000000000}")))
@@ -371,12 +383,21 @@ public class DocumentTraverserTest {
             .setCrawlImmediately(true).build(),
         new Record.Builder(
             newDocId(new Id("{AAAAAAAA-8000-0000-0000-000000000000}")))
-            .setCrawlImmediately(true).build()),
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId(newCheckpoint))
+            .setCrawlImmediately(true).build(),
+        new Record.Builder(newDocId(checkpoint))
+            .setDeleteFromIndex(true)
+            .build()),
         pusher.getRecords());
 
     pusher.reset();
-    traverser.getModifiedDocIds(pusher);
-    assertEquals(0, pusher.getRecords().size());
+    assertEquals(newCheckpoint, traverser.getDocIds(newCheckpoint, pusher));
+    assertEquals(ImmutableList.of(
+        new Record.Builder(newDocId(newCheckpoint))
+            .setDeleteFromIndex(true)
+            .build()),
+        pusher.getRecords());
   }
 
   @Test
@@ -659,13 +680,11 @@ public class DocumentTraverserTest {
     }
   }
 
-  private void assertCheckpointEquals(String actualCheckpoint,
-      String expectedDate, String expectedId) {
-    assertFalse("Missing checkpoint: " + actualCheckpoint,
-        Strings.isNullOrEmpty(actualCheckpoint));
-    Checkpoint checkpoint = new Checkpoint(actualCheckpoint);
-    assertEquals(expectedDate, checkpoint.timestamp);
-    assertEquals(expectedId, checkpoint.guid);
+  private void assertCheckpointEquals(Checkpoint expected,
+      Checkpoint actual) {
+    assertEquals(expected.type, actual.type);
+    assertEquals(expected.timestamp, actual.timestamp);
+    assertEquals(expected.guid, actual.guid);
   }
 
   /** Tests that including nothing explicitly fetches everything. */
